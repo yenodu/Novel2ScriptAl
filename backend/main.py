@@ -160,18 +160,32 @@ scenes:
 ```"""
 
 
-def build_system_prompt(style: str) -> str:
+MOOD_FIELDS = (
+    "\n此外，每个 scene 必须额外包含以下三个字段：\n"
+    "  - mood: 情绪标签（如\"紧张\"、\"浪漫\"、\"诡异\"、\"温馨\"）\n"
+    "  - suggested_lighting: 建议灯光（如\"暖黄顶光\"、\"冷蓝侧光\"、\"自然光\"）\n"
+    "  - suggested_sound: 建议音效/配乐（如\"雨声白噪\"、\"低沉弦乐\"、\"寂静\"）\n"
+)
+
+
+def build_system_prompt(style: str, add_mood: bool = False) -> str:
     _, label, addendum = STYLE_MAP[style]
-    return (
+    prompt = (
         f"你是一位专业编剧。用户会提供一段小说文本，你需要将其转换为 {label}。\n\n"
         f"{addendum}\n\n"
         f"YAML 必须包含：\n"
         f"1. title——从文本中提取或概括。\n"
         f"2. scenes 列表——每个 scene 含 scene_id（从1开始）、heading（场景标题）、"
-        f"action（动作与环境描述）、dialogues（列表，每条含 character 和 line）。\n\n"
-        f"3. 输出必须是纯 YAML，用 ```yaml 代码块包裹。不要输出任何解释或额外文字。\n\n"
+        f"action（动作与环境描述）、dialogues（列表，每条含 character 和 line）。"
+    )
+    if add_mood:
+        prompt += MOOD_FIELDS
+    prompt += (
+        f"\n3. 输出必须是纯 YAML，用 ```yaml 开头、``` 结尾的代码块包裹。\n"
+        f"   代码块外不要有任何文字，代码块内不要插入评论。\n\n"
         f"{BASE_YAML_STRUCTURE}"
     )
+    return prompt
 
 
 def build_user_prompt(novel_text: str, style: str) -> str:
@@ -185,6 +199,7 @@ def build_user_prompt(novel_text: str, style: str) -> str:
 class ConvertRequest(BaseModel):
     novel_text: str
     style: str = "faithful_realism"
+    add_mood: bool = False
 
 
 class ConvertResponse(BaseModel):
@@ -308,7 +323,7 @@ def convert(
         )
 
     client = get_client()
-    system_prompt = build_system_prompt(payload.style)
+    system_prompt = build_system_prompt(payload.style, payload.add_mood)
     user_prompt = build_user_prompt(payload.novel_text, payload.style)
 
     try:

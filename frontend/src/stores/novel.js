@@ -5,6 +5,7 @@ import api from '../api'
 export const useNovelStore = defineStore('novel', () => {
   const content = ref('')
   const style = ref('faithful_realism')
+  const addMood = ref(false)
   const yamlResult = ref('')
   const loading = ref(false)
   const error = ref(null)
@@ -23,6 +24,7 @@ export const useNovelStore = defineStore('novel', () => {
       const res = await api.post('/convert', {
         novel_text: content.value,
         style: style.value,
+        add_mood: addMood.value,
       })
       yamlResult.value = res.data.yaml
     } catch (e) {
@@ -32,5 +34,5 @@ export const useNovelStore = defineStore('novel', () => {
     }
   }
 
-  return { content, style, yamlResult, loading, error, convert }
+  return { content, style, addMood, yamlResult, loading, error, convert }
 })

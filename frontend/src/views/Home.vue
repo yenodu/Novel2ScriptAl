@@ -12,6 +12,10 @@
           <select v-model="store.style" class="select">
             <option v-for="s in currentSubStyles" :key="s.key" :value="s.key">{{ s.label }}</option>
           </select>
+          <label class="mood-toggle">
+            <input type="checkbox" v-model="store.addMood" />
+            <span>情感标签</span>
+          </label>
         </div>
       </div>
 
@@ -190,6 +194,17 @@ async function copyYaml() {
   outline: none;
   border-color: #6366f1;
 }
+
+.mood-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mood-toggle input { cursor: pointer; }
 
 /* ---------- textarea ---------- */
 .text-input,
