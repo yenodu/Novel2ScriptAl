@@ -63,27 +63,89 @@ def get_client() -> OpenAI:
 
 
 # ---------------------------------------------------------------------------
-# Prompt templates
+# Style definitions — 6 categories, 18 sub-styles
 # ---------------------------------------------------------------------------
-STYLE_LABELS = {
-    "film": "电影剧本 (film script) — 标准影视分镜，headings 使用场景/镜头格式",
-    "stage": "舞台剧剧本 (stage play) — 分幕/分场，headings 使用舞台调度格式",
-    "short": "短视频脚本 (short video) — 快节奏，单场景或简短短片格式",
+STYLE_CATEGORIES = {
+    "realism": "写实生活化改编",
+    "commercial": "商业化强戏剧改编",
+    "arthouse": "文艺诗意化改编",
+    "fantasy": "奇幻架空类改编",
+    "suspense": "悬疑惊悚改编",
+    "comedy": "喜剧夸张改编",
 }
 
-SYSTEM_PROMPT = """你是一位专业编剧。用户会提供一段小说文本，你需要将其转换成一个结构化的 YAML 剧本。
+# Each sub-style: (category_key, label, system_prompt_addendum)
+STYLE_MAP: dict[str, tuple[str, str, str]] = {
+    # ---- 一、写实生活化改编 ----
+    "faithful_realism": ("realism", "原著忠实写实",
+        "改编风格：原著忠实写实。台词、情节、人物基本照搬原著，仅精简冗余心理描写，保留原著细节与氛围，"
+        "适合文艺片、家庭剧。YAML 中 dialogue 尽量直接引用或略加润色原著对白。"),
+    "slice_of_life": ("realism", "市井烟火写实",
+        "改编风格：市井烟火写实。强化生活细节、方言口语、小人物琐碎日常，删减原著空想或夸张桥段，"
+        "适配都市现实剧。YAML 中 action 需细致描写环境氛围和人物微表情，dialogue 可加入符合人设的口语化台词。"),
+    "documentary": ("realism", "纪实改编",
+        "改编风格：纪实改编。偏向纪录片式剧本，压缩戏剧冲突，保留原著真实事件脉络，人物行为贴合现实规律。"
+        "YAML 中 heading 使用冷静客观的场景描述，action 以客观镜头语言为主。"),
 
-要求：
-1. 从文本中提取或概括一个合适的 title。
-2. 将内容拆分为多个 scenes，每个 scene 包含：
-   - scene_id: 序号（从 1 开始）
-   - heading: 场景标题（格式如「内景 - 书房 - 日」或「外景 - 公园 - 黄昏」）
-   - action: 该场景的动作与环境描述
-   - dialogues: 对话列表，每条包含 character（说话角色）和 line（台词）
+    # ---- 二、商业化强戏剧改编 ----
+    "fast_paced": ("commercial", "强爽点浓缩改编",
+        "改编风格：强爽点浓缩改编。剔除原著慢节奏铺垫，密集冲突、升级线、反转，网文改短剧最常用。"
+        "YAML 中每个 scene 需简短有力，heading 使用节奏感强的标题，dialogues 精简有力，scene 数量不宜过多。"),
+    "family_friendly": ("commercial", "合家欢通俗改编",
+        "改编风格：合家欢通俗改编。弱化原著阴暗、悲剧内容，优化人设使其更正面，可适当增加喜剧桥段，"
+        "适配院线合家欢电影。YAML 整体基调轻快温暖。"),
+    "crime_thriller": ("commercial", "悬疑刑侦商业化",
+        "改编风格：悬疑刑侦商业化。从原著零散线索提炼主线，可加连环案件、正邪博弈、倒计时元素，"
+        "适合悬疑小说改剧。YAML 中 scenes 需包含悬念节点，action 中可加入暗示线索的细节。"),
 
-3. 输出必须是纯 YAML，用 ```yaml 代码块包裹。不要输出任何解释、注释或额外文字。
+    # ---- 三、文艺诗意化改编 ----
+    "poetic_minimalist": ("arthouse", "意象留白改编",
+        "改编风格：意象留白改编。舍弃大段叙事，把原著心理描写、环境描写转化为镜头画面和视觉意象，"
+        "大量留白，弱化直白台词，适合院线文艺片。YAML 中 action 侧重画面感和情绪氛围，dialogues 极度精简。"),
+    "lyrical_prose": ("arthouse", "抒情散文诗改编",
+        "改编风格：抒情散文诗改编。拆分原著线性剧情，穿插回忆、幻想片段，侧重情绪表达而非情节推进。"
+        "YAML 中可加入「闪回」「梦境」等特殊 scene heading，action 使用散文式语言。"),
+    "absurdist_arthouse": ("arthouse", "荒诞文艺改编",
+        "改编风格：荒诞文艺改编。放大原著讽刺、荒诞设定，弱化现实逻辑，适合先锋话剧、小众实验电影。"
+        "YAML 中允许出现超现实 heading 和非线性 scene 结构，dialogues 可包含荒诞对白。"),
 
-YAML 结构示例：
+    # ---- 四、奇幻架空类改编 ----
+    "epic_fantasy": ("fantasy", "史诗宏大改编",
+        "改编风格：史诗宏大改编。扩充世界观、大场面战争/仙魔大战，精简支线配角但保留关键人物弧光，"
+        "适合改编大部头奇幻名著。YAML 中 action 需包含对奇幻元素、宏大场景的详细描述。"),
+    "light_fantasy": ("fantasy", "轻量化魔改改编",
+        "改编风格：轻量化魔改改编。砍掉原著复杂修炼体系或世界观设定，简化背景，保留主角主线，"
+        "做成快餐式网剧。YAML 结构简洁，每个 scene 快速推进剧情。"),
+    "soft_scifi": ("fantasy", "软科幻落地改编",
+        "改编风格：软科幻落地改编。把原著高概念科幻设定落地到生活化场景，减少晦涩理论，"
+        "贴合普通人观感。YAML 中科幻设定通过 dialogue 和 action 自然呈现，不做大段解释。"),
+
+    # ---- 五、悬疑惊悚改编 ----
+    "honkaku_mystery": ("suspense", "本格推理改编",
+        "改编风格：本格推理改编。严格沿用原著诡计、线索排布，忠于推理逻辑，适合侦探剧、悬疑电影。"
+        "YAML 中 scenes 需按时间线或调查步骤有序推进，每个 scene 可包含「clue」提示。"),
+    "horror_atmosphere": ("suspense", "惊悚氛围改编",
+        "改编风格：惊悚氛围改编。弱化原著文字解谜部分，强化镜头恐怖氛围、音效提示、突然惊吓，"
+        "适合恐怖小说改恐怖片。YAML 中 action 侧重环境阴暗描写和紧张感营造。"),
+    "social_suspense": ("suspense", "社会派悬疑改编",
+        "改编风格：社会派悬疑改编。以案件引出社会问题，扩充配角故事线和社会背景，"
+        "适合国内刑侦悬疑剧。YAML 中除主线案件外可加入反映社会问题的支线 scene。"),
+
+    # ---- 六、喜剧夸张改编 ----
+    "slapstick_absurd": ("comedy", "无厘头魔改",
+        "改编风格：无厘头魔改。在原著基础上加入大量原创搞笑桥段、错位台词、夸张人设，"
+        "港式喜剧风格。YAML 中 dialogue 可加入无厘头对白和错位梗，action 可包含夸张的喜剧动作描写。"),
+    "light_comedy": ("comedy", "轻喜剧落地改编",
+        "改编风格：轻喜剧落地改编。保留原著幽默内核但贴合现实人设，删减离谱或过于夸张的设定，"
+        "适合都市甜宠喜剧。YAML 中 dialogue 保持轻松幽默但不过度夸张，action 侧重温馨氛围。"),
+    "satirical_dark": ("comedy", "讽刺黑色喜剧",
+        "改编风格：讽刺黑色喜剧。放大原著讽刺内核，小人物倒霉、反套路剧情，"
+        "适合黑色幽默院线剧本。YAML 中允许悲剧性结局和反套路设计，dialogue 可含冷嘲热讽。"),
+}
+
+ALL_STYLES = frozenset(STYLE_MAP.keys())
+
+BASE_YAML_STRUCTURE = """YAML 结构示例：
 ```yaml
 title: 重逢
 scenes:
@@ -95,13 +157,26 @@ scenes:
         line: 好久不见。
       - character: 王芳
         line: 是啊，三年了。
-```
-"""
+```"""
+
+
+def build_system_prompt(style: str) -> str:
+    _, label, addendum = STYLE_MAP[style]
+    return (
+        f"你是一位专业编剧。用户会提供一段小说文本，你需要将其转换为 {label}。\n\n"
+        f"{addendum}\n\n"
+        f"YAML 必须包含：\n"
+        f"1. title——从文本中提取或概括。\n"
+        f"2. scenes 列表——每个 scene 含 scene_id（从1开始）、heading（场景标题）、"
+        f"action（动作与环境描述）、dialogues（列表，每条含 character 和 line）。\n\n"
+        f"3. 输出必须是纯 YAML，用 ```yaml 代码块包裹。不要输出任何解释或额外文字。\n\n"
+        f"{BASE_YAML_STRUCTURE}"
+    )
 
 
 def build_user_prompt(novel_text: str, style: str) -> str:
-    style_desc = STYLE_LABELS.get(style, STYLE_LABELS["film"])
-    return f"请将以下小说内容转换为 {style_desc}：\n\n{novel_text}"
+    _, label, _ = STYLE_MAP[style]
+    return f"请将以下小说内容转换为「{label}」风格的 YAML 剧本：\n\n{novel_text}"
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +184,7 @@ def build_user_prompt(novel_text: str, style: str) -> str:
 # ---------------------------------------------------------------------------
 class ConvertRequest(BaseModel):
     novel_text: str
-    style: str = "film"  # film / stage / short
+    style: str = "faithful_realism"
 
 
 class ConvertResponse(BaseModel):
@@ -226,20 +301,21 @@ def convert(
     _user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if payload.style not in ("film", "stage", "short"):
+    if payload.style not in ALL_STYLES:
         raise HTTPException(
             status_code=422,
-            detail=f"不支持的 style: '{payload.style}'，可选值为 film / stage / short",
+            detail=f"不支持的 style: '{payload.style}'",
         )
 
     client = get_client()
+    system_prompt = build_system_prompt(payload.style)
     user_prompt = build_user_prompt(payload.novel_text, payload.style)
 
     try:
         resp = client.chat.completions.create(
             model="deepseek-chat",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.7,

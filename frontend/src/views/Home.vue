@@ -5,11 +5,12 @@
       <div class="panel-header">
         <h2 class="panel-title">小说内容</h2>
         <div class="style-selector">
-          <label class="style-label" for="style-select">风格：</label>
-          <select id="style-select" v-model="store.style" class="select">
-            <option value="film">电影剧本</option>
-            <option value="stage">舞台剧</option>
-            <option value="short">短视频</option>
+          <label class="style-label">风格：</label>
+          <select v-model="category" class="select" @change="onCategoryChange">
+            <option v-for="(label, key) in categories" :key="key" :value="key">{{ label }}</option>
+          </select>
+          <select v-model="store.style" class="select">
+            <option v-for="s in currentSubStyles" :key="s.key" :value="s.key">{{ s.label }}</option>
           </select>
         </div>
       </div>
@@ -52,22 +53,78 @@
 </template>
 
 <script setup>
+import { ref, computed, watch } from 'vue'
 import { useNovelStore } from '../stores/novel'
 
 const store = useNovelStore()
 
+// ---- style data ----
+const categories = {
+  realism: '写实生活化',
+  commercial: '商业化强戏剧',
+  arthouse: '文艺诗意化',
+  fantasy: '奇幻架空类',
+  suspense: '悬疑惊悚',
+  comedy: '喜剧夸张',
+}
+
+const subStyles = {
+  realism: [
+    { key: 'faithful_realism', label: '原著忠实写实' },
+    { key: 'slice_of_life', label: '市井烟火写实' },
+    { key: 'documentary', label: '纪实改编' },
+  ],
+  commercial: [
+    { key: 'fast_paced', label: '强爽点浓缩改编' },
+    { key: 'family_friendly', label: '合家欢通俗改编' },
+    { key: 'crime_thriller', label: '悬疑刑侦商业化' },
+  ],
+  arthouse: [
+    { key: 'poetic_minimalist', label: '意象留白改编' },
+    { key: 'lyrical_prose', label: '抒情散文诗改编' },
+    { key: 'absurdist_arthouse', label: '荒诞文艺改编' },
+  ],
+  fantasy: [
+    { key: 'epic_fantasy', label: '史诗宏大改编' },
+    { key: 'light_fantasy', label: '轻量化魔改改编' },
+    { key: 'soft_scifi', label: '软科幻落地改编' },
+  ],
+  suspense: [
+    { key: 'honkaku_mystery', label: '本格推理改编' },
+    { key: 'horror_atmosphere', label: '惊悚氛围改编' },
+    { key: 'social_suspense', label: '社会派悬疑改编' },
+  ],
+  comedy: [
+    { key: 'slapstick_absurd', label: '无厘头魔改' },
+    { key: 'light_comedy', label: '轻喜剧落地改编' },
+    { key: 'satirical_dark', label: '讽刺黑色喜剧' },
+  ],
+}
+
+// Find current category from store.style
+function findCategory(styleKey) {
+  for (const [cat, list] of Object.entries(subStyles)) {
+    if (list.some(s => s.key === styleKey)) return cat
+  }
+  return 'realism'
+}
+
+const category = ref(findCategory(store.style))
+const currentSubStyles = computed(() => subStyles[category.value] || subStyles.realism)
+
+function onCategoryChange() {
+  store.style = currentSubStyles.value[0].key
+}
+
+// Keep category in sync if store.style changes externally
+watch(() => store.style, (val) => {
+  category.value = findCategory(val)
+})
+
+// ---- copy ----
 async function copyYaml() {
   if (!store.yamlResult) return
-  try {
-    await navigator.clipboard.writeText(store.yamlResult)
-  } catch {
-    const ta = document.createElement('textarea')
-    ta.value = store.yamlResult
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    document.body.removeChild(ta)
-  }
+  try { await navigator.clipboard.writeText(store.yamlResult) } catch {}
 }
 </script>
 
