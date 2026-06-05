@@ -26,7 +26,17 @@
         <div class="panel panel-yaml">
           <div class="panel-header">
             <h3 class="panel-title">剧本 YAML</h3>
-            <button class="btn-copy" @click="copyYaml">复制</button>
+            <div class="header-actions">
+              <div class="export-dropdown">
+                <button class="btn-export" @click="showExport = !showExport">导出 ▾</button>
+                <div v-if="showExport" class="export-menu">
+                  <button @click="doExport('yaml')">导出 YAML (.yaml)</button>
+                  <button @click="doExport('txt')">导出 TXT (.txt)</button>
+                  <button @click="doExport('fdx')">导出 Final Draft (.fdx)</button>
+                </div>
+              </div>
+              <button class="btn-copy" @click="copyYaml">复制</button>
+            </div>
           </div>
           <textarea v-model="editedYaml" class="yaml-editor" spellcheck="false"></textarea>
         </div>
@@ -40,6 +50,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { useHistoryStore } from '../stores/history'
+import { exportYaml, exportTxt, exportFdx } from '../utils/export'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +61,23 @@ const editedYaml = ref('')
 const loading = ref(false)
 const error = ref(null)
 const reconverting = ref(false)
+<<<<<<< Updated upstream
+=======
+const checking = ref(false)
+const showExport = ref(false)
+
+function doExport(format) {
+  showExport.value = false
+  if (format === 'yaml') exportYaml(editedYaml.value)
+  else if (format === 'txt') exportTxt(editedYaml.value)
+  else if (format === 'fdx') exportFdx(editedYaml.value)
+}
+
+// Character check state
+const showModal = ref(false)
+const features = ref({})
+const deviations = ref([])
+>>>>>>> Stashed changes
 
 onMounted(async () => {
   loading.value = true
@@ -117,6 +145,16 @@ async function reconvert() {
 
 .yaml-editor { width: 100%; min-height: 400px; padding: .75rem; font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: .85rem; line-height: 1.7; color: #e2e8f0; background: #0f172a; border: 1px solid #334155; border-radius: 6px; resize: vertical; }
 .yaml-editor:focus { outline: none; border-color: #6366f1; }
+<<<<<<< Updated upstream
+=======
+.header-actions { display: flex; gap: .5rem; align-items: center; }
+.export-dropdown { position: relative; }
+.btn-export { padding: .25rem .75rem; font-size: .8rem; color: #475569; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; }
+.btn-export:hover { border-color: #6366f1; color: #6366f1; }
+.export-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 50; min-width: 180px; overflow: hidden; }
+.export-menu button { display: block; width: 100%; padding: .5rem .75rem; border: none; background: transparent; font-size: .8rem; color: #334155; cursor: pointer; text-align: left; }
+.export-menu button:hover { background: #f1f5f9; color: #6366f1; }
+>>>>>>> Stashed changes
 
 .btn-copy { padding: .25rem .75rem; font-size: .8rem; color: #6366f1; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 4px; cursor: pointer; }
 .btn-copy:hover { background: #e0e7ff; }
