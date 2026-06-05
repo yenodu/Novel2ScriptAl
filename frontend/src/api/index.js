@@ -1,12 +1,27 @@
 import axios from 'axios'
 
-// Dev:  Vite proxies /api → backend :8000
-// Prod: same origin, call /convert directly (no /api prefix)
-const baseURL = import.meta.env.PROD ? '' : '/api'
-
 const api = axios.create({
-  baseURL,
-  timeout: 120000,  // 2 min — LLM calls can take time
+  baseURL: '/api',
+  timeout: 120000,
 })
+
+// JWT interceptor
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// 401 → logout
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token')
+      if (window.location.pathname !== '/login') window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  },
+)
 
 export default api
