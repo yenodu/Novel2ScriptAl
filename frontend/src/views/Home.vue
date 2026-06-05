@@ -141,19 +141,11 @@ async function copyYaml() {
 }
 
 .panel {
-  flex: 1;
-  min-width: 0;
-  background: #fff;
-  border-radius: 10px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
+  flex: 1; min-width: 0;
+  background: var(--bg-card); border-radius: 10px; padding: 1.5rem;
+  box-shadow: 0 1px 3px var(--shadow); display: flex; flex-direction: column;
 }
-
-.panel-output {
-  border-left: 4px solid #6366f1;
-}
+.panel-output { border-left: 4px solid var(--accent); }
 
 /* ---------- header ---------- */
 .panel-header {
@@ -163,12 +155,7 @@ async function copyYaml() {
   margin-bottom: 0.75rem;
 }
 
-.panel-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #334155;
-  margin: 0;
-}
+.panel-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0; }
 
 .style-selector {
   display: flex;
@@ -176,78 +163,19 @@ async function copyYaml() {
   gap: 0.25rem;
 }
 
-.style-label {
-  font-size: 0.85rem;
-  color: #64748b;
-}
-
-.select {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  background: #fff;
-}
-
-.select:focus {
-  outline: none;
-  border-color: #6366f1;
-}
-
-.mood-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.85rem;
-  color: #64748b;
-  cursor: pointer;
-  white-space: nowrap;
-}
+.style-label { font-size: .85rem; color: var(--text-secondary); }
+.select { padding: .25rem .5rem; border: 1px solid var(--border); border-radius: 4px; font-size: .85rem; cursor: pointer; background: var(--bg-card); color: var(--text-primary); }
+.select:focus { outline: none; border-color: var(--accent); }
+.mood-toggle { display: flex; align-items: center; gap: .3rem; font-size: .85rem; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .mood-toggle input { cursor: pointer; }
 
 /* ---------- textarea ---------- */
-.text-input,
-.yaml-editor {
-  flex: 1;
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 0.9rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  resize: none;
-  line-height: 1.7;
-  min-height: 420px;
-}
-
-.text-input {
-  font-family: inherit;
-}
-
-.text-input:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-}
-
-.yaml-editor {
-  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-  color: #e2e8f0;
-  background: #0f172a;
-  border-color: #334155;
-  tab-size: 2;
-}
-
-.yaml-editor:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-}
-
-.yaml-editor::placeholder {
-  color: #64748b;
-  font-family: inherit;
-}
+.text-input,.yaml-editor { flex:1; width:100%; padding:.75rem; font-size:.9rem; border-radius:6px; resize:none; line-height:1.7; min-height:420px; }
+.text-input { font-family:inherit; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border); }
+.text-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent)20%,transparent); }
+.yaml-editor { font-family:'Cascadia Code','Fira Code','Consolas',monospace; color:var(--code-text); background:var(--bg-code); border:1px solid var(--code-border); tab-size:2; }
+.yaml-editor:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent)30%,transparent); }
+.yaml-editor::placeholder { color:var(--text-muted); font-family:inherit; }
 
 /* ---------- button ---------- */
 .btn-convert {
@@ -256,8 +184,8 @@ async function copyYaml() {
   width: 100%;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
-  background: #6366f1;
+  color: var(--btn-primary-text);
+  background: var(--accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -265,7 +193,7 @@ async function copyYaml() {
 }
 
 .btn-convert:hover:not(:disabled) {
-  background: #4f46e5;
+  background: var(--accent-hover);
 }
 
 .btn-convert:disabled {
@@ -276,29 +204,29 @@ async function copyYaml() {
 .btn-copy {
   padding: 0.25rem 0.75rem;
   font-size: 0.8rem;
-  color: #6366f1;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid var(--accent-light);
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .btn-copy:hover {
-  background: #e0e7ff;
+  background: var(--accent-hover);
 }
 
 /* ---------- messages ---------- */
 .msg-error {
   margin-top: 0.5rem;
-  color: #dc2626;
+  color: var(--danger);
   font-size: 0.85rem;
   flex-shrink: 0;
 }
 
 .placeholder-hint {
   margin-top: 0.5rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.8rem;
   text-align: center;
   flex-shrink: 0;

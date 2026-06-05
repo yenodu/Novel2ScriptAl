@@ -78,106 +78,21 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.login-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 60vh;
-}
+.login-page { display: flex; justify-content: center; align-items: center; min-height: 60vh; }
+.login-card { width: 100%; max-width: 400px; background: var(--bg-card); border-radius: 12px; padding: 2.5rem 2rem; box-shadow: 0 4px 16px var(--shadow); text-align: center; }
+.login-title { font-size: 1.6rem; color: var(--text-primary); margin-bottom: .25rem; }
+.login-sub { color: var(--text-secondary); font-size: .9rem; margin-bottom: 1.5rem; }
 
-.login-card {
-  width: 100%;
-  max-width: 400px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 2.5rem 2rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  text-align: center;
-}
+.tabs { display: flex; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 1.25rem; }
+.tab { flex: 1; padding: .5rem 0; border: none; background: var(--bg-card-alt); color: var(--text-secondary); font-size: .9rem; font-weight: 500; cursor: pointer; }
+.tab.active { background: var(--accent); color: var(--btn-primary-text); }
 
-.login-title {
-  font-size: 1.6rem;
-  color: #0f172a;
-  margin-bottom: 0.25rem;
-}
+.login-form { display: flex; flex-direction: column; gap: .75rem; }
+.field { width: 100%; padding: .65rem .75rem; border: 1px solid var(--border); border-radius: 6px; font-size: .95rem; font-family: inherit; background: var(--bg-input); color: var(--text-primary); }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 
-.login-sub {
-  color: #64748b;
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
-}
-
-.tabs {
-  display: flex;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #cbd5e1;
-  margin-bottom: 1.25rem;
-}
-
-.tab {
-  flex: 1;
-  padding: 0.5rem 0;
-  border: none;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.tab.active {
-  background: #6366f1;
-  color: #fff;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.field {
-  width: 100%;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-family: inherit;
-}
-
-.field:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-}
-
-.btn-submit {
-  margin-top: 0.25rem;
-  padding: 0.6rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #fff;
-  background: #6366f1;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-submit:hover:not(:disabled) {
-  background: #4f46e5;
-}
-
-.btn-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.msg-error {
-  color: #dc2626;
-  font-size: 0.85rem;
-  text-align: center;
-}
+.btn-submit { margin-top: .25rem; padding: .6rem 0; font-size: 1rem; font-weight: 600; color: var(--btn-primary-text); background: var(--accent); border: none; border-radius: 6px; cursor: pointer; }
+.btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-submit:disabled { opacity: .6; cursor: not-allowed; }
+.msg-error { color: var(--danger); font-size: .85rem; text-align: center; }
 </style>
