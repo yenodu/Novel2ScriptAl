@@ -4,7 +4,7 @@ import api from '../api'
 
 export const useNovelStore = defineStore('novel', () => {
   const content = ref('')
-  const style = ref('film')
+  const style = ref('faithful_realism')
   const yamlResult = ref('')
   const loading = ref(false)
   const error = ref(null)
@@ -17,7 +17,7 @@ export const useNovelStore = defineStore('novel', () => {
 
     loading.value = true
     error.value = null
-    yamlResult.value = null
+    yamlResult.value = ''
 
     try {
       const res = await api.post('/convert', {
