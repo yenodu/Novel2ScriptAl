@@ -41,7 +41,17 @@
     <div class="panel panel-output">
       <div class="panel-header">
         <h2 class="panel-title">剧本 YAML（可编辑）</h2>
-        <button class="btn-copy" @click="copyYaml">复制</button>
+        <div class="header-actions">
+          <div class="export-dropdown">
+            <button class="btn-export" @click="showExport = !showExport">导出 ▾</button>
+            <div v-if="showExport" class="export-menu">
+              <button @click="doExport('yaml')">导出 YAML (.yaml)</button>
+              <button @click="doExport('txt')">导出 TXT (.txt)</button>
+              <button @click="doExport('fdx')">导出 Final Draft (.fdx)</button>
+            </div>
+          </div>
+          <button class="btn-copy" @click="copyYaml">复制</button>
+        </div>
       </div>
       <textarea
         v-model="store.yamlResult"
@@ -59,6 +69,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useNovelStore } from '../stores/novel'
+import { exportYaml, exportTxt, exportFdx } from '../utils/export'
 
 const store = useNovelStore()
 
@@ -124,6 +135,16 @@ function onCategoryChange() {
 watch(() => store.style, (val) => {
   category.value = findCategory(val)
 })
+
+// ---- export ----
+const showExport = ref(false)
+function doExport(format) {
+  showExport.value = false
+  if (!store.yamlResult) return
+  if (format === 'yaml') exportYaml(store.yamlResult)
+  else if (format === 'txt') exportTxt(store.yamlResult)
+  else if (format === 'fdx') exportFdx(store.yamlResult)
+}
 
 // ---- copy ----
 async function copyYaml() {
@@ -200,6 +221,14 @@ async function copyYaml() {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.header-actions { display: flex; gap: .5rem; align-items: center; }
+.export-dropdown { position: relative; }
+.btn-export { padding: .25rem .75rem; font-size: .8rem; color: #475569; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; }
+.btn-export:hover { border-color: #6366f1; color: #6366f1; }
+.export-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 50; min-width: 180px; overflow: hidden; }
+.export-menu button { display: block; width: 100%; padding: .5rem .75rem; border: none; background: transparent; font-size: .8rem; color: #334155; cursor: pointer; text-align: left; }
+.export-menu button:hover { background: #f1f5f9; color: #6366f1; }
 
 .btn-copy {
   padding: 0.25rem 0.75rem;

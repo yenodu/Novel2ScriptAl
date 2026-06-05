@@ -29,7 +29,17 @@
         <div class="panel panel-yaml">
           <div class="panel-header">
             <h3 class="panel-title">剧本 YAML</h3>
-            <button class="btn-copy" @click="copyYaml">复制</button>
+            <div class="header-actions">
+              <div class="export-dropdown">
+                <button class="btn-export" @click="showExport = !showExport">导出 ▾</button>
+                <div v-if="showExport" class="export-menu">
+                  <button @click="doExport('yaml')">导出 YAML (.yaml)</button>
+                  <button @click="doExport('txt')">导出 TXT (.txt)</button>
+                  <button @click="doExport('fdx')">导出 Final Draft (.fdx)</button>
+                </div>
+              </div>
+              <button class="btn-copy" @click="copyYaml">复制</button>
+            </div>
           </div>
           <textarea v-model="editedYaml" class="yaml-editor" spellcheck="false"></textarea>
         </div>
@@ -84,6 +94,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { useHistoryStore } from '../stores/history'
+import { exportYaml, exportTxt, exportFdx } from '../utils/export'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,6 +106,14 @@ const loading = ref(false)
 const error = ref(null)
 const reconverting = ref(false)
 const checking = ref(false)
+const showExport = ref(false)
+
+function doExport(format) {
+  showExport.value = false
+  if (format === 'yaml') exportYaml(editedYaml.value)
+  else if (format === 'txt') exportTxt(editedYaml.value)
+  else if (format === 'fdx') exportFdx(editedYaml.value)
+}
 
 // Character check state
 const showModal = ref(false)
@@ -171,6 +190,13 @@ async function runCheck(useOverride) {
 .novel-text { white-space: pre-wrap; font-size: .9rem; line-height: 1.7; color: var(--text-secondary); }
 .yaml-editor { width: 100%; min-height: 400px; padding: .75rem; font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: .85rem; line-height: 1.7; color: var(--code-text); background: var(--bg-code); border: 1px solid var(--code-border); border-radius: 6px; resize: vertical; }
 .yaml-editor:focus { outline: none; border-color: var(--accent); }
+.header-actions { display: flex; gap: .5rem; align-items: center; }
+.export-dropdown { position: relative; }
+.btn-export { padding: .25rem .75rem; font-size: .8rem; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+.btn-export:hover { border-color: var(--accent); color: var(--accent); }
+.export-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; box-shadow: 0 4px 12px var(--shadow); z-index: 50; min-width: 180px; overflow: hidden; }
+.export-menu button { display: block; width: 100%; padding: .5rem .75rem; border: none; background: transparent; font-size: .8rem; color: var(--text-primary); cursor: pointer; text-align: left; }
+.export-menu button:hover { background: var(--bg-card-alt); color: var(--accent); }
 .btn-copy { padding: .25rem .75rem; font-size: .8rem; color: var(--accent); background: var(--accent-light); border: 1px solid var(--accent-light); border-radius: 4px; cursor: pointer; }
 .btn-copy:hover { background: var(--accent-hover); }
 
