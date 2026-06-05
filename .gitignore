@@ -17,3 +17,4 @@ frontend/dist/
 .idea/
 *.swp
 *.swo
+backend/data.db
