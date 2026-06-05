@@ -256,6 +256,29 @@ class HistoryDetail(BaseModel):
     created_at: str
 
 
+class CharacterCheckRequest(BaseModel):
+    record_id: int | None = None
+    script_yaml: str | None = None
+    features_override: dict[str, dict[str, str]] | None = None
+
+
+class CharacterFeature(BaseModel):
+    personality: str = ""
+    catchphrase: str = ""
+    appearance: str = ""
+
+
+class Deviation(BaseModel):
+    character: str
+    line: str
+    issue: str
+
+
+class CharacterCheckResponse(BaseModel):
+    extracted_features: dict[str, CharacterFeature]
+    deviations: list[Deviation]
+
+
 # ---------------------------------------------------------------------------
 # Public endpoints
 # ---------------------------------------------------------------------------
@@ -441,6 +464,124 @@ def history_detail(
         style=record.style,
         created_at=record.created_at.isoformat(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Character consistency check (protected)
+# ---------------------------------------------------------------------------
+CHARACTER_PROMPT = """你是一位专业的剧本审校。请完成以下两项任务并返回 JSON。
+
+任务1：从小说文本中提取至少三个角色的特征。
+对每个角色，提供：
+  - personality: 性格描述（一句话）
+  - catchphrase: 口头禅或说话风格（如原文没有则推断）
+  - appearance: 外貌描述（如原文没有则写"未描述"）
+
+任务2：检查剧本 YAML 中每个角色的对话是否与其特征一致。
+对不一致的地方，指出：
+  - character: 角色名
+  - line: 具体台词
+  - issue: 不一致的问题描述
+
+返回必须是纯 JSON，用 ```json 代码块包裹。格式如下：
+```json
+{
+  "extracted_features": {
+    "角色名": { "personality": "...", "catchphrase": "...", "appearance": "..." }
+  },
+  "deviations": [
+    { "character": "角色名", "line": "台词", "issue": "问题描述" }
+  ]
+}
+```
+"""
+
+
+@app.post("/api/character_check", response_model=CharacterCheckResponse)
+def character_check(
+    payload: CharacterCheckRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Resolve novel_text + script_yaml from record_id or direct input
+    if payload.record_id:
+        record = db.query(ConversionRecord).filter_by(id=payload.record_id, user_id=user.id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        novel_text = record.novel_text
+        script_yaml = record.script_yaml
+    elif payload.script_yaml:
+        novel_text = ""
+        script_yaml = payload.script_yaml
+    else:
+        raise HTTPException(status_code=422, detail="请提供 record_id 或 script_yaml")
+
+    client = get_client()
+
+    # Build prompt
+    override_note = ""
+    if payload.features_override:
+        override_note = f"\n注意：以下角色特征由用户手动指定，优先使用：{payload.features_override}\n"
+
+    user_prompt = (
+        f"小说原文：\n{novel_text}\n\n"
+        f"剧本 YAML：\n{script_yaml}\n"
+        f"{override_note}"
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": CHARACTER_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=4096,
+            timeout=60,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"DeepSeek API 调用失败: {e}")
+
+    raw = resp.choices[0].message.content or ""
+
+    # Extract JSON from ```json ... ```
+    import json
+    try:
+        json_str = _extract_json_block(raw)
+        data = json.loads(json_str)
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=f"LLM 返回格式异常: {e}\n原始输出:\n{raw[:500]}")
+
+    features = {
+        name: CharacterFeature(
+            personality=f.get("personality", ""),
+            catchphrase=f.get("catchphrase", ""),
+            appearance=f.get("appearance", ""),
+        )
+        for name, f in data.get("extracted_features", {}).items()
+    }
+    deviations = [
+        Deviation(character=d["character"], line=d["line"], issue=d["issue"])
+        for d in data.get("deviations", [])
+    ]
+
+    return CharacterCheckResponse(extracted_features=features, deviations=deviations)
+
+
+def _extract_json_block(text: str) -> str:
+    start = text.find("```json")
+    if start == -1:
+        start = text.find("```")
+        if start == -1:
+            return text.strip()
+        start += 3
+    else:
+        start += 7
+    end = text.find("```", start)
+    if end == -1:
+        return text[start:].strip()
+    return text[start:end].strip()
 
 
 # ---------------------------------------------------------------------------
