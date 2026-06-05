@@ -6,6 +6,7 @@
         <p class="subtitle">小说转剧本工具</p>
       </div>
       <div v-if="auth.isLoggedIn" class="header-right">
+        <router-link to="/history" class="nav-link">历史记录</router-link>
         <span class="user-tag">{{ auth.user?.username ?? '...' }}</span>
         <button class="btn-logout" @click="handleLogout">退出</button>
       </div>
@@ -76,6 +77,8 @@ body {
   margin-top: 0.5rem;
 }
 
+.nav-link { font-size: .9rem; color: #6366f1; text-decoration: none; font-weight: 500; }
+.nav-link:hover { text-decoration: underline; }
 .user-tag {
   font-size: 0.9rem;
   color: #475569;

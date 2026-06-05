@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
+import History from '../views/History.vue'
+import ScriptDetail from '../views/ScriptDetail.vue'
 
 function getToken() {
   return localStorage.getItem('token')
@@ -17,6 +19,16 @@ const routes = [
     path: '/',
     name: 'Home',
     component: Home,
+  },
+  {
+    path: '/history',
+    name: 'History',
+    component: History,
+  },
+  {
+    path: '/history/:id',
+    name: 'ScriptDetail',
+    component: ScriptDetail,
   },
 ]
 
