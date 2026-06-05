@@ -17,7 +17,7 @@ export const useNovelStore = defineStore('novel', () => {
 
     loading.value = true
     error.value = null
-    yamlResult.value = null
+    yamlResult.value = ''
 
     try {
       const res = await api.post('/convert', {
