@@ -1,9 +1,10 @@
+import logging
 import os
 from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from openai import OpenAI
@@ -11,7 +12,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from database import engine, get_db
-from models import Base, User
+from models import Base, User, ConversionRecord
 from auth import hash_password, verify_password, create_access_token, get_current_user
 
 # Load .env from project root (priority) or backend/ directory
@@ -113,6 +114,7 @@ class ConvertRequest(BaseModel):
 
 class ConvertResponse(BaseModel):
     yaml: str
+    record_id: int | None = None
 
 
 class AuthRequest(BaseModel):
@@ -147,6 +149,21 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     username: str
+
+
+class HistoryItem(BaseModel):
+    id: int
+    novel_preview: str
+    style: str
+    created_at: str
+
+
+class HistoryDetail(BaseModel):
+    id: int
+    novel_text: str
+    script_yaml: str
+    style: str
+    created_at: str
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +224,7 @@ def me(current_user: User = Depends(get_current_user)):
 def convert(
     payload: ConvertRequest,
     _user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     if payload.style not in ("film", "stage", "short"):
         raise HTTPException(
@@ -248,7 +266,23 @@ def convert(
             detail=f"LLM 返回的不是有效 YAML。原始输出:\n{raw[:500]}",
         )
 
-    return ConvertResponse(yaml=yaml_str)
+    # Auto-save record (failure must not break the response)
+    record_id = None
+    try:
+        record = ConversionRecord(
+            user_id=_user.id,
+            novel_text=payload.novel_text,
+            script_yaml=yaml_str,
+            style=payload.style,
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        record_id = record.id
+    except Exception:
+        logging.exception("Failed to save ConversionRecord")
+
+    return ConvertResponse(yaml=yaml_str, record_id=record_id)
 
 
 def _extract_yaml_block(text: str) -> str:
@@ -269,6 +303,53 @@ def _extract_yaml_block(text: str) -> str:
         return text[start:].strip()
 
     return text[start:end].strip()
+
+
+# ---------------------------------------------------------------------------
+# History endpoints (protected)
+# ---------------------------------------------------------------------------
+@app.get("/api/history", response_model=list[HistoryItem])
+def history(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    records = (
+        db.query(ConversionRecord)
+        .filter_by(user_id=user.id)
+        .order_by(ConversionRecord.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [
+        HistoryItem(
+            id=r.id,
+            novel_preview=r.novel_text[:100],
+            style=r.style,
+            created_at=r.created_at.isoformat(),
+        )
+        for r in records
+    ]
+
+
+@app.get("/api/history/{record_id}", response_model=HistoryDetail)
+def history_detail(
+    record_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="记录不存在")
+    return HistoryDetail(
+        id=record.id,
+        novel_text=record.novel_text,
+        script_yaml=record.script_yaml,
+        style=record.style,
+        created_at=record.created_at.isoformat(),
+    )
 
 
 # ---------------------------------------------------------------------------
