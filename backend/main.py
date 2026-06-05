@@ -169,7 +169,9 @@ def build_system_prompt(style: str) -> str:
         f"1. title——从文本中提取或概括。\n"
         f"2. scenes 列表——每个 scene 含 scene_id（从1开始）、heading（场景标题）、"
         f"action（动作与环境描述）、dialogues（列表，每条含 character 和 line）。\n\n"
-        f"3. 输出必须是纯 YAML，用 ```yaml 代码块包裹。不要输出任何解释或额外文字。\n\n"
+        f"3. 输出必须是纯 YAML，用 ```yaml 开头、``` 结尾的代码块包裹。\n"
+        f"   代码块外不要有任何文字，代码块内不要插入评论或感叹词。\n"
+        f"   确保 YAML 是完整、合法的，所有缩进用空格。\n\n"
         f"{BASE_YAML_STRUCTURE}"
     )
 
@@ -319,7 +321,7 @@ def convert(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.7,
-            max_tokens=4096,
+            max_tokens=8192,
             timeout=60,
         )
     except Exception as e:
@@ -376,7 +378,16 @@ def _extract_yaml_block(text: str) -> str:
 
     end = text.find("```", start)
     if end == -1:
-        return text[start:].strip()
+        # No closing marker — trim trailing garbage (LLM commentary etc.)
+        yaml_str = text[start:].strip()
+        lines = yaml_str.split("\n")
+        while lines and not any(
+            lines[-1].strip().startswith(p) for p in
+            ("- ", "  ", "#", "title:", "scenes:", "dialogues:",
+             "heading:", "action:", "character:", "line:", "scene_id:")
+        ) and ":" not in lines[-1]:
+            lines.pop()
+        return "\n".join(lines).strip()
 
     return text[start:end].strip()
 
