@@ -1,8 +1,12 @@
 import axios from 'axios'
 
+// Dev:  Vite proxies /api → backend :8000
+// Prod: same origin, call /convert directly (no /api prefix)
+const baseURL = import.meta.env.PROD ? '' : '/api'
+
 const api = axios.create({
-  baseURL: '/api',   // proxied by Vite → http://127.0.0.1:8000
-  timeout: 30000,
+  baseURL,
+  timeout: 120000,  // 2 min — LLM calls can take time
 })
 
 export default api
