@@ -4,7 +4,8 @@ import api from '../api'
 
 export const useNovelStore = defineStore('novel', () => {
   const content = ref('')
-  const result = ref(null)
+  const style = ref('film')
+  const yamlResult = ref('')
   const loading = ref(false)
   const error = ref(null)
 
@@ -16,11 +17,14 @@ export const useNovelStore = defineStore('novel', () => {
 
     loading.value = true
     error.value = null
-    result.value = null
+    yamlResult.value = null
 
     try {
-      const res = await api.post('/convert', { text: content.value })
-      result.value = res.data
+      const res = await api.post('/convert', {
+        novel_text: content.value,
+        style: style.value,
+      })
+      yamlResult.value = res.data.yaml
     } catch (e) {
       error.value = e.response?.data?.detail ?? e.message ?? '请求失败，请检查后端是否已启动'
     } finally {
@@ -28,5 +32,5 @@ export const useNovelStore = defineStore('novel', () => {
     }
   }
 
-  return { content, result, loading, error, convert }
+  return { content, style, yamlResult, loading, error, convert }
 })

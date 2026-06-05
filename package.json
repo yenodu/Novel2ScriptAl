@@ -1,0 +1,12 @@
+{
+  "name": "novel2scriptal",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n be,fe -c blue,green \"cd backend && uvicorn main:app --reload --port 8000\" \"cd frontend && npm run dev\"",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && uvicorn main:app --host 0.0.0.0 --port 8000"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
