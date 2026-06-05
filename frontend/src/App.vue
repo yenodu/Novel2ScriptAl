@@ -1,8 +1,14 @@
 <template>
   <div id="app-container">
     <header class="app-header">
-      <h1>Novel2ScriptAl</h1>
-      <p class="subtitle">小说转剧本工具</p>
+      <div class="header-left">
+        <h1>Novel2ScriptAl</h1>
+        <p class="subtitle">小说转剧本工具</p>
+      </div>
+      <div v-if="auth.isLoggedIn" class="header-right">
+        <span class="user-tag">{{ auth.user?.username ?? '...' }}</span>
+        <button class="btn-logout" @click="handleLogout">退出</button>
+      </div>
     </header>
     <main>
       <router-view />
@@ -11,7 +17,17 @@
 </template>
 
 <script setup>
-// App-level setup — keep minimal; page logic lives in views.
+import { useAuthStore } from './stores/auth'
+
+const auth = useAuthStore()
+
+// Try to restore user from token on first load
+auth.fetchMe()
+
+function handleLogout() {
+  auth.logout()
+  window.location.href = '/login'
+}
 </script>
 
 <style>
@@ -32,17 +48,19 @@ body {
 }
 
 #app-container {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 2rem 1.5rem;
 }
 
 .app-header {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 2rem;
 }
 
-.app-header h1 {
+.header-left h1 {
   font-size: 2rem;
   color: #0f172a;
 }
@@ -50,5 +68,36 @@ body {
 .subtitle {
   color: #64748b;
   margin-top: 0.25rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.user-tag {
+  font-size: 0.9rem;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+}
+
+.btn-logout {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-logout:hover {
+  color: #dc2626;
+  border-color: #dc2626;
 }
 </style>

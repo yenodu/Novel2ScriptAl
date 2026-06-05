@@ -1,13 +1,23 @@
 <template>
   <section class="home">
-    <!-- Input area -->
-    <div class="card">
-      <label class="label" for="novel-input">小说内容</label>
+    <!-- Left: Input -->
+    <div class="panel panel-input">
+      <div class="panel-header">
+        <h2 class="panel-title">小说内容</h2>
+        <div class="style-selector">
+          <label class="style-label" for="style-select">风格：</label>
+          <select id="style-select" v-model="store.style" class="select">
+            <option value="film">电影剧本</option>
+            <option value="stage">舞台剧</option>
+            <option value="short">短视频</option>
+          </select>
+        </div>
+      </div>
+
       <textarea
         id="novel-input"
         v-model="store.content"
         class="text-input"
-        rows="12"
         placeholder="在此粘贴小说文本……"
       ></textarea>
 
@@ -16,16 +26,27 @@
         :disabled="store.loading"
         @click="store.convert()"
       >
-        {{ store.loading ? '转换中…' : '转换' }}
+        {{ store.loading ? '转换中…' : '→ 转换' }}
       </button>
 
       <p v-if="store.error" class="msg-error">{{ store.error }}</p>
     </div>
 
-    <!-- Result area -->
-    <div v-if="store.result" class="card result-card">
-      <h2 class="label">转换结果</h2>
-      <pre class="result-pre">{{ JSON.stringify(store.result, null, 2) }}</pre>
+    <!-- Right: YAML Output (always visible) -->
+    <div class="panel panel-output">
+      <div class="panel-header">
+        <h2 class="panel-title">剧本 YAML（可编辑）</h2>
+        <button class="btn-copy" @click="copyYaml">复制</button>
+      </div>
+      <textarea
+        v-model="store.yamlResult"
+        class="yaml-editor"
+        placeholder="转换后的 YAML 剧本将显示在这里……"
+        spellcheck="false"
+      ></textarea>
+      <p v-if="!store.yamlResult && !store.loading" class="placeholder-hint">
+        左侧粘贴小说内容，点击「→ 转换」生成 YAML 剧本
+      </p>
     </div>
   </section>
 </template>
@@ -34,33 +55,101 @@
 import { useNovelStore } from '../stores/novel'
 
 const store = useNovelStore()
+
+async function copyYaml() {
+  if (!store.yamlResult) return
+  try {
+    await navigator.clipboard.writeText(store.yamlResult)
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = store.yamlResult
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
+}
 </script>
 
 <style scoped>
-.card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  margin-bottom: 1.5rem;
+/* ---------- two-column layout ---------- */
+.home {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
 }
 
-.label {
-  display: block;
+.panel {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-output {
+  border-left: 4px solid #6366f1;
+}
+
+/* ---------- header ---------- */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.panel-title {
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
   color: #334155;
+  margin: 0;
+}
+
+.style-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.style-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: #fff;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+/* ---------- textarea ---------- */
+.text-input,
+.yaml-editor {
+  flex: 1;
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  resize: none;
+  line-height: 1.7;
+  min-height: 420px;
 }
 
 .text-input {
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  resize: vertical;
   font-family: inherit;
-  line-height: 1.6;
 }
 
 .text-input:focus {
@@ -69,9 +158,30 @@ const store = useNovelStore()
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
+.yaml-editor {
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  color: #e2e8f0;
+  background: #0f172a;
+  border-color: #334155;
+  tab-size: 2;
+}
+
+.yaml-editor:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.yaml-editor::placeholder {
+  color: #64748b;
+  font-family: inherit;
+}
+
+/* ---------- button ---------- */
 .btn-convert {
   margin-top: 0.75rem;
-  padding: 0.6rem 2rem;
+  padding: 0.6rem 0;
+  width: 100%;
   font-size: 1rem;
   font-weight: 600;
   color: #fff;
@@ -91,23 +201,34 @@ const store = useNovelStore()
   cursor: not-allowed;
 }
 
+.btn-copy {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  color: #6366f1;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-copy:hover {
+  background: #e0e7ff;
+}
+
+/* ---------- messages ---------- */
 .msg-error {
   margin-top: 0.5rem;
   color: #dc2626;
-  font-size: 0.9rem;
-}
-
-.result-card {
-  border-left: 4px solid #6366f1;
-}
-
-.result-pre {
-  background: #f1f5f9;
-  padding: 1rem;
-  border-radius: 6px;
   font-size: 0.85rem;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
+  flex-shrink: 0;
+}
+
+.placeholder-hint {
+  margin-top: 0.5rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-align: center;
+  flex-shrink: 0;
 }
 </style>
