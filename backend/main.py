@@ -3,11 +3,16 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
+
+from database import engine, get_db
+from models import Base, User
+from auth import hash_password, verify_password, create_access_token, get_current_user
 
 # Load .env from project root (priority) or backend/ directory
 _root = Path(__file__).resolve().parent.parent
@@ -18,6 +23,9 @@ else:
     load_dotenv(Path(__file__).resolve().parent / ".env")
 
 app = FastAPI(title="Novel2ScriptAl API")
+
+# Create DB tables on startup
+Base.metadata.create_all(bind=engine)
 
 # CORS — allow frontend dev server origin
 app.add_middleware(
@@ -107,16 +115,99 @@ class ConvertResponse(BaseModel):
     yaml: str
 
 
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+    @field_validator("username")
+    @classmethod
+    def username_valid(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3 or len(v) > 32:
+            raise ValueError("用户名长度应为 3-32 个字符")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_valid(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("密码长度至少 6 个字符")
+        return v
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    username: str
+
+
 # ---------------------------------------------------------------------------
-# Endpoints
+# Public endpoints
 # ---------------------------------------------------------------------------
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
 
 
-@app.post("/convert", response_model=ConvertResponse)
-def convert(payload: ConvertRequest):
+# ---------------------------------------------------------------------------
+# Auth endpoints (public)
+# ---------------------------------------------------------------------------
+@app.post("/api/register", response_model=UserResponse)
+def register(payload: AuthRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter_by(username=payload.username).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="用户名已存在")
+
+    user = User(
+        username=payload.username,
+        hashed_password=hash_password(payload.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return UserResponse(
+        id=user.id,
+        username=user.username,
+        created_at=user.created_at.isoformat(),
+    )
+
+
+@app.post("/api/login", response_model=TokenResponse)
+def login(payload: AuthRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter_by(username=payload.username).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+    token = create_access_token(user.id)
+    return TokenResponse(access_token=token, username=user.username)
+
+
+@app.get("/api/me", response_model=UserResponse)
+def me(current_user: User = Depends(get_current_user)):
+    return UserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        created_at=current_user.created_at.isoformat(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Protected endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/convert", response_model=ConvertResponse)
+def convert(
+    payload: ConvertRequest,
+    _user: User = Depends(get_current_user),
+):
     if payload.style not in ("film", "stage", "short"):
         raise HTTPException(
             status_code=422,
@@ -181,8 +272,25 @@ def _extract_yaml_block(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Serve built frontend in production (after all API routes)
+# SPA fallback — serve built frontend for all unmatched GET requests
+# Must be defined LAST so API routes take precedence.
 # ---------------------------------------------------------------------------
 _frontend_dist = (_root / "frontend" / "dist").resolve()
-if _frontend_dist.is_dir():
-    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
+_frontend_index = _frontend_dist / "index.html"
+
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    """Serve static files; fall back to index.html for SPA client-side routes."""
+    if not _frontend_dist.is_dir():
+        raise HTTPException(status_code=404, detail="前端尚未构建，请先运行 npm run build")
+
+    file_path = _frontend_dist / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
+
+    # SPA fallback — /login, /, or any client-side route
+    if _frontend_index.is_file():
+        return FileResponse(_frontend_index)
+
+    raise HTTPException(status_code=404, detail="Not Found")
