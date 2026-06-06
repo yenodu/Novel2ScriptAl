@@ -77,14 +77,14 @@ function formatTime(iso) {
 .history-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px var(--shadow); }
 .history-table th { background: var(--bg-card-alt); color: var(--text-secondary); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; padding: .75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-light); }
 .history-table td { padding: .75rem 1rem; font-size: .9rem; color: var(--text-primary); border-bottom: 1px solid var(--border-light); }
-.history-table tbody tr:hover { background: var(--bg-card-alt); }
+.history-table tbody tr{transition:background .15s ease,transform .15s ease}.history-table tbody tr:hover{transform:translateX(3px);background:var(--bg-card-alt)}
 
 .col-preview { max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .col-style { width: 80px; }
 .col-time { width: 150px; white-space: nowrap; }
-.col-action { width: 80px; text-align: center; }
+.col-action { width: 100px; text-align: center; white-space: nowrap; }
 
-.btn-view { padding: .3rem .8rem; font-size: .8rem; color: var(--accent); background: var(--accent-light); border: 1px solid var(--accent-light); border-radius: 4px; cursor: pointer; text-decoration: none; }
+.btn-view { padding: .35rem 1rem; font-size: .8rem; color: var(--accent); background: var(--accent-light); border: 1px solid var(--accent-light); border-radius: 6px; cursor: pointer; text-decoration: none; letter-spacing: .05em; white-space: nowrap; }
 .btn-view:hover { background: var(--accent-hover); }
 
 .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.25rem; }

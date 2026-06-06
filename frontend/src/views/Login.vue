@@ -38,7 +38,7 @@
 
         <p v-if="store.error" class="msg-error">{{ store.error }}</p>
 
-        <button class="btn-submit" type="submit" :disabled="store.loading">
+        <button class="btn-submit ripple" type="submit" :disabled="store.loading">
           {{ store.loading ? '请稍候…' : mode === 'login' ? '登录' : '注册' }}
         </button>
       </form>
@@ -78,21 +78,23 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.login-page { display: flex; justify-content: center; align-items: center; min-height: 60vh; }
-.login-card { width: 100%; max-width: 400px; background: var(--bg-card); border-radius: 12px; padding: 2.5rem 2rem; box-shadow: 0 4px 16px var(--shadow); text-align: center; }
-.login-title { font-size: 1.6rem; color: var(--text-primary); margin-bottom: .25rem; }
-.login-sub { color: var(--text-secondary); font-size: .9rem; margin-bottom: 1.5rem; }
+.login-page { display: flex; justify-content: center; align-items: center; min-height: 65vh; padding: 2rem 0; }
+.login-card { width: 100%; max-width: 420px; background: var(--bg-card); border-radius: 20px; padding: 3rem 2.5rem; box-shadow: 0 8px 40px var(--shadow); text-align: center; border: 1px solid var(--border-light); position: relative; overflow: hidden; }
+.login-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-hover), var(--accent-light)); }
+.login-title { font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent-text)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: .3rem; }
+.login-sub { color: var(--text-secondary); font-size: .9rem; margin-bottom: 2rem; }
 
-.tabs { display: flex; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 1.25rem; }
-.tab { flex: 1; padding: .5rem 0; border: none; background: var(--bg-card-alt); color: var(--text-secondary); font-size: .9rem; font-weight: 500; cursor: pointer; }
-.tab.active { background: var(--accent); color: var(--btn-primary-text); }
+.tabs { display: flex; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 1.5rem; background: var(--bg-card-alt); }
+.tab { flex: 1; padding: .6rem 0; border: none; background: transparent; color: var(--text-secondary); font-size: .9rem; font-weight: 500; cursor: pointer; transition: all .2s; }
+.tab.active { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: var(--btn-primary-text); box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent); }
 
-.login-form { display: flex; flex-direction: column; gap: .75rem; }
-.field { width: 100%; padding: .65rem .75rem; border: 1px solid var(--border); border-radius: 6px; font-size: .95rem; font-family: inherit; background: var(--bg-input); color: var(--text-primary); }
-.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.login-form { display: flex; flex-direction: column; gap: .85rem; }
+.field { width: 100%; padding: .75rem .9rem; border: 1.5px solid var(--border); border-radius: 10px; font-size: .95rem; font-family: inherit; background: var(--bg-input); color: var(--text-primary); transition: all .15s; }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent); }
+.field::placeholder { color: var(--text-muted); }
 
-.btn-submit { margin-top: .25rem; padding: .6rem 0; font-size: 1rem; font-weight: 600; color: var(--btn-primary-text); background: var(--accent); border: none; border-radius: 6px; cursor: pointer; }
-.btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
-.btn-submit:disabled { opacity: .6; cursor: not-allowed; }
-.msg-error { color: var(--danger); font-size: .85rem; text-align: center; }
+.btn-submit { margin-top: .5rem; padding: .7rem 0; font-size: 1rem; font-weight: 700; color: var(--btn-primary-text); background: linear-gradient(135deg, var(--accent), var(--accent-hover)); border: none; border-radius: 10px; cursor: pointer; transition: all .2s; letter-spacing: .02em; }
+.btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
+.btn-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+.msg-error { color: var(--danger); font-size: .85rem; text-align: center; margin-top: .25rem; }
 </style>
