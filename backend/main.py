@@ -263,6 +263,29 @@ class MoodUpdateRequest(BaseModel):
     suggested_sound: str | None = None
 
 
+class CharacterCheckRequest(BaseModel):
+    record_id: int | None = None
+    script_yaml: str | None = None
+    features_override: dict[str, dict[str, str]] | None = None
+
+
+class CharacterFeature(BaseModel):
+    personality: str = ""
+    catchphrase: str = ""
+    appearance: str = ""
+
+
+class Deviation(BaseModel):
+    character: str
+    line: str
+    issue: str
+
+
+class CharacterCheckResponse(BaseModel):
+    extracted_features: dict[str, CharacterFeature]
+    deviations: list[Deviation]
+
+
 # ---------------------------------------------------------------------------
 # Public endpoints
 # ---------------------------------------------------------------------------
@@ -463,13 +486,10 @@ def update_mood(
     record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
-
-    # Parse YAML, find scene, update mood fields
     try:
         data = yaml.safe_load(record.script_yaml)
     except yaml.YAMLError:
         raise HTTPException(status_code=500, detail="剧本 YAML 损坏，无法解析")
-
     scenes = data.get("scenes", [])
     updated = False
     for s in scenes:
@@ -481,14 +501,64 @@ def update_mood(
                 s["suggested_sound"] = payload.suggested_sound
             updated = True
             break
-
     if not updated:
         raise HTTPException(status_code=404, detail=f"未找到 scene_id={payload.scene_id}")
-
     record.script_yaml = yaml.dump(data, allow_unicode=True, sort_keys=False)
     db.commit()
-
     return {"ok": True, "scene_id": payload.scene_id, "mood": payload.mood}
+
+
+# ---------------------------------------------------------------------------
+# Character consistency check (protected)
+# ---------------------------------------------------------------------------
+CHARACTER_PROMPT = """你是一位专业的剧本审校。请完成以下两项任务并返回 JSON。
+
+任务1：从小说文本中提取至少三个角色的特征。对每个角色提供 personality（性格）、catchphrase（口头禅）、appearance（外貌）。
+任务2：检查剧本 YAML 中每个角色的对话是否与其特征一致。对不一致的地方指出角色名、台词和问题描述。
+
+返回必须是纯 JSON，用 ```json 代码块包裹：
+```json
+{"extracted_features":{"角色名":{"personality":"...","catchphrase":"...","appearance":"..."}},"deviations":[{"character":"...","line":"...","issue":"..."}]}
+```
+"""
+
+
+@app.post("/api/character_check", response_model=CharacterCheckResponse)
+def character_check(
+    payload: CharacterCheckRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.record_id:
+        record = db.query(ConversionRecord).filter_by(id=payload.record_id, user_id=user.id).first()
+        if not record: raise HTTPException(status_code=404, detail="记录不存在")
+        novel_text, script_yaml = record.novel_text, record.script_yaml
+    elif payload.script_yaml:
+        novel_text, script_yaml = "", payload.script_yaml
+    else:
+        raise HTTPException(status_code=422, detail="请提供 record_id 或 script_yaml")
+    client = get_client()
+    override_note = f"\n注意：以下角色特征由用户手动指定，优先使用：{payload.features_override}\n" if payload.features_override else ""
+    user_prompt = f"小说原文：\n{novel_text}\n\n剧本 YAML：\n{script_yaml}\n{override_note}"
+    try:
+        resp = client.chat.completions.create(model="deepseek-chat", messages=[
+            {"role":"system","content":CHARACTER_PROMPT},{"role":"user","content":user_prompt}], temperature=0.3, max_tokens=4096, timeout=60)
+    except Exception as e: raise HTTPException(status_code=502, detail=f"DeepSeek API 调用失败: {e}")
+    raw = resp.choices[0].message.content or ""
+    import json
+    try:
+        json_str = _extract_json_block(raw); data = json.loads(json_str)
+    except (json.JSONDecodeError, ValueError) as e: raise HTTPException(status_code=502, detail=f"LLM 返回格式异常: {e}")
+    features = {name: CharacterFeature(personality=f.get("personality",""),catchphrase=f.get("catchphrase",""),appearance=f.get("appearance","")) for name,f in data.get("extracted_features",{}).items()}
+    deviations = [Deviation(character=d["character"],line=d["line"],issue=d["issue"]) for d in data.get("deviations",[])]
+    return CharacterCheckResponse(extracted_features=features, deviations=deviations)
+
+
+def _extract_json_block(text: str) -> str:
+    start = text.find("```json"); start = start+7 if start!=-1 else (text.find("```")+3 if text.find("```")!=-1 else 0)
+    if start<3: return text.strip()
+    end = text.find("```", start)
+    return text[start:end].strip() if end!=-1 else text[start:].strip()
 
 
 # ---------------------------------------------------------------------------

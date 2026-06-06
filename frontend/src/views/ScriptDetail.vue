@@ -13,6 +13,9 @@
       <div class="meta-bar">
         <span class="meta-tag">风格：{{ styleLabel(record.style) }}</span>
         <span class="meta-tag">时间：{{ formatTime(record.created_at) }}</span>
+        <button class="btn-character" @click="openCheck" :disabled="checking">
+          {{ checking ? '校验中…' : '🔍 角色一致性校验' }}
+        </button>
         <button class="btn-reconvert" @click="reconvert" :disabled="reconverting">
           {{ reconverting ? '转换中…' : '重新转换' }}
         </button>
@@ -26,7 +29,17 @@
         <div class="panel panel-yaml">
           <div class="panel-header">
             <h3 class="panel-title">剧本 YAML</h3>
-            <button class="btn-copy" @click="copyYaml">复制</button>
+            <div class="header-actions">
+              <div class="export-dropdown">
+                <button class="btn-export" @click="showExport = !showExport">导出 ▾</button>
+                <div v-if="showExport" class="export-menu">
+                  <button @click="doExport('yaml')">导出 YAML (.yaml)</button>
+                  <button @click="doExport('txt')">导出 TXT (.txt)</button>
+                  <button @click="doExport('fdx')">导出 Final Draft (.fdx)</button>
+                </div>
+              </div>
+              <button class="btn-copy" @click="copyYaml">复制</button>
+            </div>
           </div>
           <div class="yaml-wrapper">
             <textarea
@@ -49,21 +62,27 @@
       </div>
     </div>
 
+    <!-- Character Check Modal -->
+    <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
+      <div class="modal-card">
+        <div class="modal-header"><h3>角色一致性校验报告</h3><button class="btn-close" @click="showModal = false">✕</button></div>
+        <h4 class="section-title">提取的角色特征</h4>
+        <table class="feature-table" v-if="Object.keys(features).length"><thead><tr><th>角色</th><th>性格</th><th>口头禅</th><th>外貌</th></tr></thead><tbody><tr v-for="(f, name) in features" :key="name"><td><strong>{{ name }}</strong></td><td><input v-model="f.personality" class="feat-input" /></td><td><input v-model="f.catchphrase" class="feat-input" /></td><td><input v-model="f.appearance" class="feat-input" /></td></tr></tbody></table>
+        <p v-else class="msg-hint">暂无特征数据</p>
+        <button class="btn-recheck" @click="runCheck(true)" :disabled="checking">{{ checking ? '校验中…' : '基于编辑后特征重新校验' }}</button>
+        <h4 class="section-title">偏差报告</h4>
+        <div v-if="deviations.length" class="deviation-list"><div v-for="(d, i) in deviations" :key="i" class="deviation-item"><span class="dev-char">{{ d.character }}</span><span class="dev-line">"{{ d.line }}"</span><span class="dev-issue">{{ d.issue }}</span></div></div>
+        <p v-else class="msg-hint msg-ok">✅ 所有角色对话与特征一致</p>
+      </div>
+    </div>
+
     <!-- Mood Modal -->
     <div v-if="showMoodModal" class="modal-overlay" @click.self="showMoodModal=false">
-      <div class="mood-modal">
-        <h3>🎭 设置情感标签</h3>
-        <p class="mood-context">场景 {{ moodSceneId }}：{{ moodContext }}</p>
-        <label class="mood-label">Mood（情绪）</label>
-        <input v-model="moodValue" class="mood-input" placeholder="如：紧张、悲伤、温馨…" @keyup.enter="applyMood" />
-        <label class="mood-label">Suggested Lighting（灯光，可选）</label>
-        <input v-model="moodLighting" class="mood-input" placeholder="如：暖黄顶光" />
-        <label class="mood-label">Suggested Sound（音效，可选）</label>
-        <input v-model="moodSound" class="mood-input" placeholder="如：雨声白噪" />
-        <div class="mood-actions">
-          <button class="btn-cancel" @click="showMoodModal=false">取消</button>
-          <button class="btn-apply" @click="applyMood">应用</button>
-        </div>
+      <div class="mood-modal"><h3>🎭 设置情感标签</h3><p class="mood-context">场景 {{ moodSceneId }}：{{ moodContext }}</p>
+        <label class="mood-label">Mood（情绪）</label><input v-model="moodValue" class="mood-input" placeholder="如：紧张、悲伤…" @keyup.enter="applyMood" />
+        <label class="mood-label">灯光（可选）</label><input v-model="moodLighting" class="mood-input" placeholder="如：暖黄顶光" />
+        <label class="mood-label">音效（可选）</label><input v-model="moodSound" class="mood-input" placeholder="如：雨声白噪" />
+        <div class="mood-actions"><button class="btn-cancel" @click="showMoodModal=false">取消</button><button class="btn-apply" @click="applyMood">应用</button></div>
       </div>
     </div>
 
@@ -77,6 +96,7 @@ import { ref, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { useHistoryStore } from '../stores/history'
+import { exportYaml, exportTxt, exportFdx } from '../utils/export'
 
 const route = useRoute()
 const router = useRouter()
@@ -87,6 +107,20 @@ const editedYaml = ref('')
 const loading = ref(false)
 const error = ref(null)
 const reconverting = ref(false)
+const checking = ref(false)
+const showExport = ref(false)
+
+function doExport(format) {
+  showExport.value = false
+  if (format === 'yaml') exportYaml(editedYaml.value)
+  else if (format === 'txt') exportTxt(editedYaml.value)
+  else if (format === 'fdx') exportFdx(editedYaml.value)
+}
+
+// Character check state
+const showModal = ref(false)
+const features = ref({})
+const deviations = ref([])
 
 // ---- mood editing ----
 const yamlRef = ref(null)
@@ -257,64 +291,64 @@ async function reconvert() {
 <style scoped>
 .detail-page { max-width: 1200px; margin: 0 auto; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.page-header h2 { font-size: 1.25rem; color: #0f172a; }
-.back-link { font-size: .9rem; color: #6366f1; text-decoration: none; }
+.page-header h2 { font-size: 1.25rem; color: var(--text-primary); }
+.back-link { font-size: .9rem; color: var(--accent); text-decoration: none; }
 .back-link:hover { text-decoration: underline; }
 
-.msg-error { color: #dc2626; font-size: .9rem; margin-bottom: 1rem; }
-.msg-loading { color: #64748b; text-align: center; padding: 3rem 0; }
+.msg-error { color: var(--danger); font-size: .9rem; margin-bottom: 1rem; }
+.msg-loading { color: var(--text-secondary); text-align: center; padding: 3rem 0; }
 
 .meta-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.meta-tag { font-size: .8rem; color: #475569; background: #e2e8f0; padding: .2rem .6rem; border-radius: 4px; }
-.btn-reconvert { margin-left: auto; padding: .3rem 1rem; font-size: .85rem; font-weight: 500; color: #fff; background: #6366f1; border: none; border-radius: 4px; cursor: pointer; }
-.btn-reconvert:hover:not(:disabled) { background: #4f46e5; }
-.btn-reconvert:disabled { opacity: .6; cursor: not-allowed; }
+.meta-tag { font-size: .8rem; color: var(--text-secondary); background: var(--tag-bg); padding: .2rem .6rem; border-radius: 4px; }
+.btn-reconvert { margin-left: auto; padding: .3rem 1rem; font-size: .85rem; font-weight: 500; color: var(--btn-primary-text); background: var(--accent); border: none; border-radius: 4px; cursor: pointer; }
+.btn-reconvert:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-reconvert:disabled,.btn-character:disabled,.btn-recheck:disabled { opacity: .6; cursor: not-allowed; }
+.btn-character { padding: .3rem 1rem; font-size: .85rem; font-weight: 500; color: var(--accent); background: var(--accent-light); border: 1px solid var(--accent-light); border-radius: 4px; cursor: pointer; }
+.btn-character:hover:not(:disabled) { background: var(--accent-hover); }
 
 .columns { display: flex; gap: 1.5rem; align-items: flex-start; }
-.panel { flex: 1; min-width: 0; background: #fff; border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-.panel-yaml { border-left: 4px solid #6366f1; }
-.panel-title { font-size: .95rem; font-weight: 600; color: #334155; margin-bottom: .5rem; }
-.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
-.novel-text { white-space: pre-wrap; font-size: .9rem; line-height: 1.7; color: #475569; max-height: 400px; overflow-y: auto; padding-right: .5rem; }
-.novel-text::-webkit-scrollbar { width: 6px; }
-.novel-text::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-
-.yaml-wrapper { position: relative; }
-.yaml-editor { width: 100%; min-height: 400px; padding: .75rem; font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: .85rem; line-height: 1.7; color: #e2e8f0; background: #0f172a; border: 1px solid #334155; border-radius: 6px; resize: vertical; }
-.yaml-editor:focus { outline: none; border-color: #6366f1; }
-
-.btn-copy { padding: .25rem .75rem; font-size: .8rem; color: #6366f1; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 4px; cursor: pointer; }
-.btn-copy:hover { background: #e0e7ff; }
-
-/* floating button */
-.float-btn {
-  position: absolute;
-  padding: .4rem .8rem;
-  font-size: .8rem;
-  color: #fff;
-  background: #6366f1;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,.25);
-  z-index: 10;
-  animation: fadeUp .2s;
-}
-@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
-/* mood modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.mood-modal { background: #fff; border-radius: 12px; padding: 1.75rem; width: 90%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
-.mood-modal h3 { font-size: 1.1rem; margin-bottom: .5rem; color: #0f172a; }
-.mood-context { font-size: .8rem; color: #64748b; margin-bottom: 1rem; padding: .4rem .6rem; background: #f8fafc; border-radius: 4px; }
-.mood-label { display: block; font-size: .8rem; color: #475569; margin: .5rem 0 .2rem; }
-.mood-input { width: 100%; padding: .45rem .6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .9rem; }
-.mood-input:focus { outline: none; border-color: #6366f1; }
-.mood-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
-.btn-cancel { padding: .4rem 1rem; font-size: .85rem; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; }
-.btn-apply { padding: .4rem 1rem; font-size: .85rem; color: #fff; background: #6366f1; border: none; border-radius: 6px; cursor: pointer; }
-.btn-apply:hover { background: #4f46e5; }
-
-/* toast */
-.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); padding: .6rem 1.5rem; background: #1e293b; color: #fff; border-radius: 8px; font-size: .9rem; z-index: 200; animation: fadeUp .3s; }
+.panel { flex: 1; min-width: 0; background: var(--bg-card); border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 3px var(--shadow); }
+.panel-yaml { border-left: 4px solid var(--accent); }
+.panel-title { font-size: .95rem; font-weight: 600; color: var(--text-primary); margin-bottom: .5rem; }
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+.novel-text{white-space:pre-wrap;font-size:.9rem;line-height:1.7;color:var(--text-secondary);max-height:400px;overflow-y:auto;padding-right:.5rem}
+.novel-text::-webkit-scrollbar{width:6px}.novel-text::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.header-actions{display:flex;gap:.5rem;align-items:center}.export-dropdown{position:relative}
+.btn-export{padding:.25rem .75rem;font-size:.8rem;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border);border-radius:4px;cursor:pointer}
+.btn-export:hover{border-color:var(--accent);color:var(--accent)}
+.export-menu{position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;box-shadow:0 4px 12px var(--shadow);z-index:50;min-width:180px;overflow:hidden}
+.export-menu button{display:block;width:100%;padding:.5rem .75rem;border:none;background:transparent;font-size:.8rem;color:var(--text-primary);cursor:pointer;text-align:left}
+.export-menu button:hover{background:var(--bg-card-alt);color:var(--accent)}
+.btn-copy{padding:.25rem .75rem;font-size:.8rem;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent-light);border-radius:4px;cursor:pointer}
+.btn-copy:hover{background:var(--accent-hover)}
+.yaml-wrapper{position:relative}
+.yaml-editor{width:100%;min-height:400px;padding:.75rem;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:.85rem;line-height:1.7;color:var(--code-text);background:var(--bg-code);border:1px solid var(--code-border);border-radius:6px;resize:vertical}
+.yaml-editor:focus{outline:none;border-color:var(--accent)}
+.float-btn{position:absolute;padding:.4rem .8rem;font-size:.8rem;color:#fff;background:var(--accent);border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:10;animation:fadeUp .2s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;justify-content:center;align-items:center;z-index:100}
+.modal-card{background:var(--bg-card);border-radius:12px;width:90%;max-width:800px;max-height:85vh;overflow-y:auto;padding:2rem;box-shadow:0 8px 32px var(--shadow)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.modal-header h3{font-size:1.15rem;color:var(--text-primary)}.btn-close{padding:.25rem .6rem;font-size:1rem;border:none;background:transparent;cursor:pointer;color:var(--text-secondary)}.btn-close:hover{color:var(--danger)}
+.section-title{font-size:.95rem;font-weight:600;color:var(--text-primary);margin:1rem 0 .5rem;border-bottom:1px solid var(--border-light);padding-bottom:.25rem}
+.feature-table{width:100%;border-collapse:collapse;margin-bottom:.5rem}
+.feature-table th{background:var(--bg-card-alt);font-size:.8rem;color:var(--text-secondary);padding:.5rem;text-align:left;border-bottom:1px solid var(--border-light)}
+.feature-table td{padding:.4rem .5rem;border-bottom:1px solid var(--border-light)}
+.feat-input{width:100%;padding:.3rem .4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;font-family:inherit;background:var(--bg-input);color:var(--text-primary)}
+.feat-input:focus{outline:none;border-color:var(--accent)}
+.btn-recheck{padding:.4rem 1rem;font-size:.85rem;font-weight:500;color:var(--btn-primary-text);background:var(--accent);border:none;border-radius:4px;cursor:pointer;margin-top:.5rem}
+.deviation-list{display:flex;flex-direction:column;gap:.5rem}
+.deviation-item{display:flex;gap:.75rem;padding:.5rem .75rem;background:#3A2020;border-radius:6px;font-size:.85rem;align-items:flex-start}
+.dev-char{font-weight:600;color:#FCA5A5;white-space:nowrap}.dev-line{color:#FCA5A5;font-style:italic}.dev-issue{color:#FCA5A5;margin-left:auto;text-align:right;max-width:300px}
+.msg-hint{font-size:.85rem;color:var(--text-muted)}.msg-ok{color:var(--success)}
+.mood-modal{background:var(--bg-card);border-radius:12px;padding:1.75rem;width:90%;max-width:420px;box-shadow:0 8px 32px var(--shadow)}
+.mood-modal h3{font-size:1.1rem;margin-bottom:.5rem;color:var(--text-primary)}
+.mood-context{font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;padding:.4rem .6rem;background:var(--bg-card-alt);border-radius:4px}
+.mood-label{display:block;font-size:.8rem;color:var(--text-secondary);margin:.5rem 0 .2rem}
+.mood-input{width:100%;padding:.45rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.9rem;background:var(--bg-input);color:var(--text-primary)}
+.mood-input:focus{outline:none;border-color:var(--accent)}
+.mood-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem}
+.btn-cancel{padding:.4rem 1rem;font-size:.85rem;color:var(--text-secondary);background:var(--bg-card-alt);border:1px solid var(--border-light);border-radius:6px;cursor:pointer}
+.btn-apply{padding:.4rem 1rem;font-size:.85rem;color:var(--btn-primary-text);background:var(--accent);border:none;border-radius:6px;cursor:pointer}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);padding:.6rem 1.5rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;font-size:.9rem;z-index:200;animation:fadeUp .3s}
 </style>

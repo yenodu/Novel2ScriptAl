@@ -20,7 +20,6 @@
         <h2 class="panel-title">剧本 YAML（可编辑）</h2>
         <div class="header-actions">
           <div class="export-dropdown">
-            <button class="btn-export" @click="showExport=!showExport">导出 ▾</button>
             <div v-if="showExport" class="export-menu">
               <button @click="doExport('yaml')">导出 YAML (.yaml)</button>
               <button @click="doExport('txt')">导出 TXT (.txt)</button>
