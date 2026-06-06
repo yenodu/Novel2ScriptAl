@@ -13,11 +13,11 @@
       <div class="meta-bar">
         <span class="meta-tag">风格：{{ styleLabel(record.style) }}</span>
         <span class="meta-tag">时间：{{ formatTime(record.created_at) }}</span>
-        <button class="btn-character" @click="openCheck" :disabled="checking">
+        <button class="btn-character ripple" @click="openCheck" :disabled="checking">
           {{ checking ? '校验中…' : '🔍 角色一致性校验' }}
         </button>
         <button class="btn-save" @click="saveRecord" :disabled="saving">{{ saving ? '保存中…' : '💾 保存' }}</button>
-        <button class="btn-reconvert" @click="reconvert" :disabled="reconverting">
+        <button class="btn-reconvert ripple" @click="reconvert" :disabled="reconverting">
           {{ reconverting ? '转换中…' : '重新转换' }}
         </button>
       </div>
@@ -356,7 +356,7 @@ async function reconvert() {
 .yaml-editor:focus{outline:none;border-color:var(--accent)}
 .float-btn{position:absolute;padding:.4rem .8rem;font-size:.8rem;color:#fff;background:var(--accent);border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:10;animation:fadeUp .2s}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;justify-content:center;align-items:center;z-index:100}
+.modal-overlay{animation:fadeIn .2s ease;position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;justify-content:center;align-items:center;z-index:100}
 .modal-card{background:var(--bg-card);border-radius:12px;width:90%;max-width:800px;max-height:85vh;overflow-y:auto;padding:2rem;box-shadow:0 8px 32px var(--shadow)}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
 .modal-header h3{font-size:1.15rem;color:var(--text-primary)}.btn-close{padding:.25rem .6rem;font-size:1rem;border:none;background:transparent;cursor:pointer;color:var(--text-secondary)}.btn-close:hover{color:var(--danger)}

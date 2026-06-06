@@ -13,7 +13,7 @@
         </div>
       </div>
       <textarea v-model="store.content" class="text-input" placeholder="在此粘贴小说文本……"></textarea>
-      <button class="btn-convert" :disabled="store.loading" @click="store.convert()">{{ store.loading ? '转换中…' : '→ 转换' }}</button>
+      <button class="btn-convert ripple" :disabled="store.loading" @click="store.convert()">{{ store.loading ? '转换中…' : '→ 转换' }}</button>
       <p v-if="store.error" class="msg-error">{{ store.error }}</p>
     </div>
 
@@ -139,10 +139,12 @@ async function copyYaml(){if(!store.yamlResult)return;try{await navigator.clipbo
 
 <style scoped>
 .home{display:flex;gap:1.5rem;align-items:flex-start}
-.panel{flex:1;min-width:0;background:var(--bg-card);border-radius:10px;padding:1.5rem;box-shadow:0 1px 3px var(--shadow);display:flex;flex-direction:column}
+.panel{flex:1;min-width:0;background:var(--bg-card);border-radius:16px;padding:1.75rem;box-shadow:0 2px 12px var(--shadow);display:flex;flex-direction:column;border:1px solid var(--border-light);transition:box-shadow .2s}
+.panel:hover{box-shadow:0 4px 20px var(--shadow)}
 .panel-output{border-left:4px solid var(--accent)}
-.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
-.panel-title{font-size:1rem;font-weight:600;color:var(--text-primary);margin:0}
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.panel-title{font-size:1.05rem;font-weight:700;color:var(--text-primary);margin:0;display:flex;align-items:center;gap:.4rem}
+.panel-title::before{content:'';display:inline-block;width:4px;height:18px;background:var(--accent);border-radius:2px}
 .style-selector{display:flex;align-items:center;gap:.25rem}
 .style-label{font-size:.85rem;color:var(--text-secondary)}
 .select{padding:.25rem .5rem;border:1px solid var(--border);border-radius:4px;font-size:.85rem;cursor:pointer;background:var(--bg-card);color:var(--text-primary)}
@@ -158,15 +160,21 @@ async function copyYaml(){if(!store.yamlResult)return;try{await navigator.clipbo
 .yaml-editor{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--code-text);background:var(--bg-code);border:1px solid var(--code-border);tab-size:2}
 .yaml-editor:focus{outline:none;border-color:var(--accent)}
 .yaml-editor::placeholder{color:var(--text-muted);font-family:inherit}
-.btn-convert{margin-top:.75rem;padding:.6rem 0;width:100%;font-size:1rem;font-weight:600;color:var(--btn-primary-text);background:var(--accent);border:none;border-radius:6px;cursor:pointer}
-.btn-convert:hover:not(:disabled){background:var(--accent-hover)}
-.btn-convert:disabled{opacity:.6;cursor:not-allowed}
+.btn-convert{margin-top:.75rem;padding:.75rem 0;width:100%;font-size:1.05rem;font-weight:700;color:var(--btn-primary-text);background:linear-gradient(135deg,var(--accent),var(--accent-hover));border:none;border-radius:12px;cursor:pointer;transition:all .2s;letter-spacing:.02em;position:relative;overflow:hidden}
+.btn-convert:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px color-mix(in srgb,var(--accent)40%,transparent)}
+.btn-convert:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.text-input,.yaml-editor{flex:1;width:100%;padding:.85rem;font-size:.9rem;border-radius:10px;resize:none;line-height:1.7;min-height:420px;transition:all .15s}
+.text-input{font-family:inherit;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border)}
+.text-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent)12%,transparent)}
+.yaml-editor{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--code-text);background:var(--bg-code);border:1.5px solid var(--code-border);tab-size:2}
+.yaml-editor:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent)15%,transparent)}
+.yaml-editor::placeholder{color:var(--text-muted);font-family:inherit}
 .header-actions{display:flex;gap:.5rem;align-items:center}
 .export-dropdown{position:relative}
-.btn-export{padding:.25rem .75rem;font-size:.8rem;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border);border-radius:4px;cursor:pointer}
-.btn-export:hover{border-color:var(--accent);color:var(--accent)}
-.export-menu{position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;box-shadow:0 4px 12px var(--shadow);z-index:50;min-width:180px;overflow:hidden}
-.export-menu button{display:block;width:100%;padding:.5rem .75rem;border:none;background:transparent;font-size:.8rem;color:var(--text-primary);cursor:pointer;text-align:left}
+.btn-export{padding:.35rem .85rem;font-size:.8rem;color:var(--text-secondary);background:var(--bg-card);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
+.btn-export:hover{border-color:var(--accent);color:var(--accent);background:var(--bg-card-alt)}
+.export-menu{position:absolute;top:100%;right:0;margin-top:6px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:10px;box-shadow:0 8px 24px var(--shadow);z-index:50;min-width:200px;overflow:hidden;animation:fadeInUp .15s ease}
+.export-menu button{display:block;width:100%;padding:.6rem .9rem;border:none;background:transparent;font-size:.8rem;color:var(--text-primary);cursor:pointer;text-align:left;transition:all .1s}
 .export-menu button:hover{background:var(--bg-card-alt);color:var(--accent)}
 .btn-copy{padding:.25rem .75rem;font-size:.8rem;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent-light);border-radius:4px;cursor:pointer}
 .btn-copy:hover{background:var(--accent-hover)}
@@ -175,7 +183,7 @@ async function copyYaml(){if(!store.yamlResult)return;try{await navigator.clipbo
 .yaml-wrapper{position:relative}
 .float-btn{position:absolute;padding:.4rem .8rem;font-size:.8rem;color:#fff;background:var(--accent);border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:10;animation:fadeUp .2s}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;justify-content:center;align-items:center;z-index:100}
+.modal-overlay{animation:fadeIn .2s ease;position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;justify-content:center;align-items:center;z-index:100}
 .mood-modal{background:var(--bg-card);border-radius:12px;padding:1.75rem;width:90%;max-width:420px;box-shadow:0 8px 32px var(--shadow)}
 .mood-modal h3{font-size:1.1rem;margin-bottom:.5rem;color:var(--text-primary)}
 .mood-context{font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;padding:.4rem .6rem;background:var(--bg-card-alt);border-radius:4px}
