@@ -256,6 +256,13 @@ class HistoryDetail(BaseModel):
     created_at: str
 
 
+class MoodUpdateRequest(BaseModel):
+    scene_id: int
+    mood: str
+    suggested_lighting: str | None = None
+    suggested_sound: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Public endpoints
 # ---------------------------------------------------------------------------
@@ -441,6 +448,47 @@ def history_detail(
         style=record.style,
         created_at=record.created_at.isoformat(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Mood update (protected)
+# ---------------------------------------------------------------------------
+@app.patch("/api/record/{record_id}/mood")
+def update_mood(
+    record_id: int,
+    payload: MoodUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="记录不存在")
+
+    # Parse YAML, find scene, update mood fields
+    try:
+        data = yaml.safe_load(record.script_yaml)
+    except yaml.YAMLError:
+        raise HTTPException(status_code=500, detail="剧本 YAML 损坏，无法解析")
+
+    scenes = data.get("scenes", [])
+    updated = False
+    for s in scenes:
+        if s.get("scene_id") == payload.scene_id:
+            s["mood"] = payload.mood
+            if payload.suggested_lighting is not None:
+                s["suggested_lighting"] = payload.suggested_lighting
+            if payload.suggested_sound is not None:
+                s["suggested_sound"] = payload.suggested_sound
+            updated = True
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"未找到 scene_id={payload.scene_id}")
+
+    record.script_yaml = yaml.dump(data, allow_unicode=True, sort_keys=False)
+    db.commit()
+
+    return {"ok": True, "scene_id": payload.scene_id, "mood": payload.mood}
 
 
 # ---------------------------------------------------------------------------
