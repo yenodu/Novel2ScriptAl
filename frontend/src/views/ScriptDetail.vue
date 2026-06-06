@@ -1,7 +1,7 @@
 <template>
   <section class="detail-page">
     <div class="page-header">
-      <router-link to="/history" class="back-link">← 返回历史</router-link>
+      <router-link :to="backLink" class="back-link">← {{ backLabel }}</router-link>
       <h2>剧本详情</h2>
       <span></span>
     </div>
@@ -16,6 +16,7 @@
         <button class="btn-character" @click="openCheck" :disabled="checking">
           {{ checking ? '校验中…' : '🔍 角色一致性校验' }}
         </button>
+        <button class="btn-save" @click="saveRecord" :disabled="saving">{{ saving ? '保存中…' : '💾 保存' }}</button>
         <button class="btn-reconvert" @click="reconvert" :disabled="reconverting">
           {{ reconverting ? '转换中…' : '重新转换' }}
         </button>
@@ -24,7 +25,7 @@
       <div class="columns">
         <div class="panel">
           <h3 class="panel-title">原始小说</h3>
-          <div class="novel-text">{{ record.novel_text }}</div>
+          <textarea v-model="editedNovel" class="novel-textarea"></textarea>
         </div>
         <div class="panel panel-yaml">
           <div class="panel-header">
@@ -104,7 +105,13 @@ const historyStore = useHistoryStore()
 
 const record = ref(null)
 const editedYaml = ref('')
+const editedNovel = ref('')
 const loading = ref(false)
+const saving = ref(false)
+
+const from = route.query.from
+const backLink = from === 'folders' ? '/folders' : '/history'
+const backLabel = from === 'folders' ? '返回文件夹' : '返回历史'
 const error = ref(null)
 const reconverting = ref(false)
 const checking = ref(false)
@@ -140,6 +147,7 @@ onMounted(async () => {
     const data = await historyStore.fetchDetail(route.params.id)
     record.value = data
     editedYaml.value = data.script_yaml
+    editedNovel.value = data.novel_text
   } catch (e) {
     error.value = e.response?.data?.detail ?? '加载失败'
   } finally { loading.value = false }
@@ -277,6 +285,19 @@ function styleLabel(s) {
 function formatTime(iso) { return iso ? iso.replace('T', ' ').slice(0, 19) : '' }
 async function copyYaml() { try { await navigator.clipboard.writeText(editedYaml.value) } catch {} }
 
+async function saveRecord() {
+  if (!record.value) return
+  saving.value = true; error.value = null
+  try {
+    await api.patch(`/records/${route.params.id}`, {
+      novel_text: editedNovel.value,
+      script_yaml: editedYaml.value,
+    })
+    _toast('✅ 已保存')
+  } catch (e) { error.value = e.response?.data?.detail ?? '保存失败' }
+  finally { saving.value = false }
+}
+
 async function reconvert() {
   if (!record.value) return
   reconverting.value = true; error.value = null
@@ -311,8 +332,11 @@ async function reconvert() {
 .panel-yaml { border-left: 4px solid var(--accent); }
 .panel-title { font-size: .95rem; font-weight: 600; color: var(--text-primary); margin-bottom: .5rem; }
 .panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
-.novel-text{white-space:pre-wrap;font-size:.9rem;line-height:1.7;color:var(--text-secondary);max-height:400px;overflow-y:auto;padding-right:.5rem}
-.novel-text::-webkit-scrollbar{width:6px}.novel-text::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.novel-textarea{width:100%;min-height:400px;padding:.75rem;font-family:inherit;font-size:.9rem;line-height:1.7;color:var(--text-primary);background:var(--bg-input);border:1px solid var(--border);border-radius:6px;resize:vertical;overflow-y:auto}
+.novel-textarea:focus{outline:none;border-color:var(--accent)}
+.novel-textarea::-webkit-scrollbar{width:6px}.novel-textarea::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.btn-save{padding:.3rem 1rem;font-size:.85rem;font-weight:500;color:var(--btn-primary-text);background:var(--success);border:none;border-radius:4px;cursor:pointer}
+.btn-save:disabled{opacity:.6;cursor:not-allowed}
 .header-actions{display:flex;gap:.5rem;align-items:center}.export-dropdown{position:relative}
 .btn-export{padding:.25rem .75rem;font-size:.8rem;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border);border-radius:4px;cursor:pointer}
 .btn-export:hover{border-color:var(--accent);color:var(--accent)}
