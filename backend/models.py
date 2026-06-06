@@ -19,6 +19,7 @@ class User(Base):
 
 class Folder(Base):
     __tablename__ = "folders"
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(64), nullable=False)

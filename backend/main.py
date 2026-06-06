@@ -368,8 +368,8 @@ def convert(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.7,
-            max_tokens=4096,
-            timeout=60,
+            max_tokens=16384,
+            timeout=90,
         )
     except Exception as e:
         raise HTTPException(
@@ -427,9 +427,27 @@ def _extract_yaml_block(text: str) -> str:
 
     end = text.find("```", start)
     if end == -1:
-        return text[start:].strip()
+        # No closing marker — LLM output was truncated. Trim trailing garbage.
+        result = text[start:].strip()
+        lines = result.split("\n")
+        # Remove trailing lines that don't look like YAML (no colon, not list/dialogue continuation)
+        while lines and not _looks_like_yaml_line(lines[-1]):
+            lines.pop()
+        return "\n".join(lines).strip()
 
     return text[start:end].strip()
+
+
+def _looks_like_yaml_line(line: str) -> bool:
+    s = line.strip()
+    if not s: return False
+    if ":" in s: return True
+    if s.startswith("- "): return True
+    if s.startswith("#"): return True
+    # continuation lines (indented content)
+    if len(s) < len(line) and line[0] == " ":  # indented
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -619,6 +637,85 @@ def update_record(record_id:int, payload:RecordUpdateRequest, user:User=Depends(
     if payload.novel_text is not None: r.novel_text=payload.novel_text
     if payload.script_yaml is not None: r.script_yaml=payload.script_yaml
     db.commit(); return {"ok":True}
+def _get_default_folder(user_id: int, db: Session) -> Folder:
+    folder = db.query(Folder).filter_by(user_id=user_id, name="未归档").first()
+    if not folder:
+        folder = Folder(user_id=user_id, name="未归档")
+        db.add(folder); db.commit(); db.refresh(folder)
+    return folder
+
+
+@app.get("/api/folders")
+def list_folders(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _get_default_folder(user.id, db)  # ensure default exists
+    folders = db.query(Folder).filter_by(user_id=user.id).order_by(Folder.created_at).all()
+    return [{"id": f.id, "name": f.name, "parent_id": f.parent_id, "created_at": f.created_at.isoformat()} for f in folders]
+
+
+class FolderCreate(BaseModel):
+    name: str
+
+
+class FolderMove(BaseModel):
+    folder_id: int
+
+
+@app.post("/api/folders")
+def create_folder(payload: FolderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    name = payload.name.strip()
+    if not name or len(name) > 64: raise HTTPException(status_code=422, detail="文件夹名称 1-64 字符")
+    existing = db.query(Folder).filter_by(user_id=user.id, name=name).first()
+    if existing: raise HTTPException(status_code=409, detail="文件夹已存在")
+    folder = Folder(user_id=user.id, name=name)
+    db.add(folder); db.commit(); db.refresh(folder)
+    return {"id": folder.id, "name": folder.name}
+
+
+@app.put("/api/folders/{folder_id}")
+def rename_folder(folder_id: int, payload: FolderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    folder = db.query(Folder).filter_by(id=folder_id, user_id=user.id).first()
+    if not folder: raise HTTPException(status_code=404, detail="文件夹不存在")
+    name = payload.name.strip()
+    if not name or len(name) > 64: raise HTTPException(status_code=422, detail="文件夹名称 1-64 字符")
+    folder.name = name; db.commit()
+    return {"id": folder.id, "name": folder.name}
+
+
+class RecordUpdateRequest(BaseModel):
+    novel_text: str | None = None
+    script_yaml: str | None = None
+
+
+@app.patch("/api/records/{record_id}")
+def update_record(record_id: int, payload: RecordUpdateRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
+    if not record: raise HTTPException(status_code=404, detail="记录不存在")
+    if payload.novel_text is not None: record.novel_text = payload.novel_text
+    if payload.script_yaml is not None: record.script_yaml = payload.script_yaml
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/records/{record_id}/folder")
+def move_record(record_id: int, payload: FolderMove, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    folder_id = payload.folder_id
+    record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
+    if not record: raise HTTPException(status_code=404, detail="记录不存在")
+    folder = db.query(Folder).filter_by(id=folder_id, user_id=user.id).first()
+    if not folder: raise HTTPException(status_code=404, detail="文件夹不存在")
+    record.folder_id = folder_id; db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/folders/{folder_id}/records")
+def folder_records(folder_id: int, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    folder = db.query(Folder).filter_by(id=folder_id, user_id=user.id).first()
+    if not folder: raise HTTPException(status_code=404, detail="文件夹不存在")
+    records = db.query(ConversionRecord).filter_by(user_id=user.id, folder_id=folder_id)\
+        .order_by(ConversionRecord.created_at.desc()).offset(offset).limit(limit).all()
+    return [{"id": r.id, "novel_preview": r.novel_text[:100], "style": r.style, "created_at": r.created_at.isoformat()} for r in records]
+
 
 # ---------------------------------------------------------------------------
 # SPA fallback — serve built frontend for all unmatched GET requests

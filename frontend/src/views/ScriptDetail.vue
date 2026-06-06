@@ -108,6 +108,7 @@ const editedYaml = ref('')
 const editedNovel = ref('')
 const loading = ref(false)
 const saving = ref(false)
+
 const from = route.query.from
 const backLink = from === 'folders' ? '/folders' : '/history'
 const backLabel = from === 'folders' ? '返回文件夹' : '返回历史'
@@ -289,6 +290,7 @@ async function saveRecord() {
   try { await api.patch(`/records/${route.params.id}`, { novel_text: editedNovel.value, script_yaml: editedYaml.value }); _toast('✅ 已保存') }
   catch (e) { error.value = e.response?.data?.detail ?? '保存失败' } finally { saving.value = false }
 }
+
 async function reconvert() {
   if (!record.value) return
   reconverting.value = true; error.value = null
