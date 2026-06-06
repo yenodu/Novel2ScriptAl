@@ -291,6 +291,19 @@ async function saveRecord() {
   catch (e) { error.value = e.response?.data?.detail ?? '保存失败' } finally { saving.value = false }
 }
 
+async function openCheck() { await runCheck(false) }
+async function runCheck(useOverride) {
+  checking.value = true; error.value = null; showModal.value = true
+  try {
+    const body = { record_id: Number(route.params.id) }
+    if (useOverride) body.features_override = features.value
+    const res = await api.post('/character_check', body)
+    features.value = res.data.extracted_features || {}
+    deviations.value = res.data.deviations || []
+  } catch (e) { error.value = e.response?.data?.detail ?? '校验失败' }
+  finally { checking.value = false }
+}
+
 async function reconvert() {
   if (!record.value) return
   reconverting.value = true; error.value = null
