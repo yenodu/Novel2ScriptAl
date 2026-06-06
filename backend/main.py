@@ -150,6 +150,8 @@ BASE_YAML_STRUCTURE = """YAML 结构示例：
 title: 重逢
 scenes:
   - scene_id: 1
+    chapter_index: 1
+    chapter_title: 第一章 相遇
     heading: 内景 - 咖啡厅 - 下午
     action: 阳光透过落地窗洒在木质地板上，李明推门走进咖啡厅。
     dialogues:
@@ -173,9 +175,11 @@ def build_system_prompt(style: str, add_mood: bool = False) -> str:
     prompt = (
         f"你是一位专业编剧。用户会提供一段小说文本，你需要将其转换为 {label}。\n\n"
         f"{addendum}\n\n"
+        f"如果原文包含章节标记（如\"第一章\"、\"第X章\"等），请识别并拆分章节。\n\n"
         f"YAML 必须包含：\n"
         f"1. title——从文本中提取或概括。\n"
-        f"2. scenes 列表——每个 scene 含 scene_id（从1开始）、heading（场景标题）、"
+        f"2. scenes 列表——每个 scene 含 scene_id（从1开始）、chapter_index（所属章节序号，无章节则为1）、"
+        f"chapter_title（所属章节标题，无章节则为\"正文\"）、heading（场景标题）、"
         f"action（动作与环境描述）、dialogues（列表，每条含 character 和 line）。"
     )
     if add_mood:
@@ -584,6 +588,55 @@ def _extract_json_block(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Folder endpoints (protected)
 # ---------------------------------------------------------------------------
+class FolderCreate(BaseModel): name: str
+class FolderMove(BaseModel): folder_id: int
+class RecordUpdateRequest(BaseModel): novel_text: str|None=None; script_yaml: str|None=None
+
+def _get_default_folder(user_id: int, db: Session) -> Folder:
+    f = db.query(Folder).filter_by(user_id=user_id, name="未归档").first()
+    if not f: f = Folder(user_id=user_id, name="未归档"); db.add(f); db.commit(); db.refresh(f)
+    return f
+
+@app.get("/api/folders")
+def list_folders(user: User=Depends(get_current_user), db: Session=Depends(get_db)):
+    _get_default_folder(user.id, db)
+    return [{"id":f.id,"name":f.name,"parent_id":f.parent_id,"created_at":f.created_at.isoformat()} for f in db.query(Folder).filter_by(user_id=user.id).order_by(Folder.created_at).all()]
+
+@app.post("/api/folders")
+def create_folder(payload: FolderCreate, user: User=Depends(get_current_user), db: Session=Depends(get_db)):
+    n=payload.name.strip()
+    if not n or len(n)>64: raise HTTPException(422,"名称1-64字符")
+    if db.query(Folder).filter_by(user_id=user.id,name=n).first(): raise HTTPException(409,"已存在")
+    f=Folder(user_id=user.id,name=n); db.add(f); db.commit(); db.refresh(f); return {"id":f.id,"name":f.name}
+
+@app.put("/api/folders/{folder_id}")
+def rename_folder(folder_id:int, payload:FolderCreate, user:User=Depends(get_current_user), db:Session=Depends(get_db)):
+    f=db.query(Folder).filter_by(id=folder_id,user_id=user.id).first()
+    if not f: raise HTTPException(404,"不存在")
+    n=payload.name.strip()
+    if not n or len(n)>64: raise HTTPException(422,"名称1-64字符")
+    f.name=n; db.commit(); return {"id":f.id,"name":f.name}
+
+@app.put("/api/records/{record_id}/folder")
+def move_record(record_id:int, payload:FolderMove, user:User=Depends(get_current_user), db:Session=Depends(get_db)):
+    r=db.query(ConversionRecord).filter_by(id=record_id,user_id=user.id).first()
+    if not r: raise HTTPException(404,"记录不存在")
+    if not db.query(Folder).filter_by(id=payload.folder_id,user_id=user.id).first(): raise HTTPException(404,"文件夹不存在")
+    r.folder_id=payload.folder_id; db.commit(); return {"ok":True}
+
+@app.get("/api/folders/{folder_id}/records")
+def folder_records(folder_id:int, limit:int=Query(20,ge=1,le=100), offset:int=Query(0,ge=0), user:User=Depends(get_current_user), db:Session=Depends(get_db)):
+    if not db.query(Folder).filter_by(id=folder_id,user_id=user.id).first(): raise HTTPException(404,"不存在")
+    rs=db.query(ConversionRecord).filter_by(user_id=user.id,folder_id=folder_id).order_by(ConversionRecord.created_at.desc()).offset(offset).limit(limit).all()
+    return [{"id":r.id,"novel_preview":r.novel_text[:100],"style":r.style,"created_at":r.created_at.isoformat()} for r in rs]
+
+@app.patch("/api/records/{record_id}")
+def update_record(record_id:int, payload:RecordUpdateRequest, user:User=Depends(get_current_user), db:Session=Depends(get_db)):
+    r=db.query(ConversionRecord).filter_by(id=record_id,user_id=user.id).first()
+    if not r: raise HTTPException(404,"不存在")
+    if payload.novel_text is not None: r.novel_text=payload.novel_text
+    if payload.script_yaml is not None: r.script_yaml=payload.script_yaml
+    db.commit(); return {"ok":True}
 def _get_default_folder(user_id: int, db: Session) -> Folder:
     folder = db.query(Folder).filter_by(user_id=user_id, name="未归档").first()
     if not folder:

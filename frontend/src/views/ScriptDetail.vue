@@ -286,16 +286,9 @@ function formatTime(iso) { return iso ? iso.replace('T', ' ').slice(0, 19) : '' 
 async function copyYaml() { try { await navigator.clipboard.writeText(editedYaml.value) } catch {} }
 
 async function saveRecord() {
-  if (!record.value) return
-  saving.value = true; error.value = null
-  try {
-    await api.patch(`/records/${route.params.id}`, {
-      novel_text: editedNovel.value,
-      script_yaml: editedYaml.value,
-    })
-    _toast('✅ 已保存')
-  } catch (e) { error.value = e.response?.data?.detail ?? '保存失败' }
-  finally { saving.value = false }
+  if (!record.value) return; saving.value = true; error.value = null
+  try { await api.patch(`/records/${route.params.id}`, { novel_text: editedNovel.value, script_yaml: editedYaml.value }); _toast('✅ 已保存') }
+  catch (e) { error.value = e.response?.data?.detail ?? '保存失败' } finally { saving.value = false }
 }
 
 async function reconvert() {

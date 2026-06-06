@@ -46,7 +46,6 @@
         <div class="mood-actions"><button class="btn-cancel" @click="showMoodModal=false">取消</button><button class="btn-apply" @click="applyMood">应用</button></div>
       </div>
     </div>
-
     <div v-if="showSaveModal" class="modal-overlay" @click.self="showSaveModal=false">
       <div class="save-modal"><h3>💾 保存到文件夹</h3>
         <p v-if="saveLoading" class="msg-loading">加载中…</p>
@@ -92,7 +91,7 @@ async function openSaveModal() { showSaveModal.value=true; saveLoading.value=tru
 watch(showSaveModal, v => { if(v) openSaveModal() })
 function quickCreateFolder() { showQuickCreate.value=!showQuickCreate.value; newFolderName.value='' }
 async function doQuickCreate() { if(!newFolderName.value.trim())return; try{const r=await api.post('/folders',{name:newFolderName.value.trim()});saveFolders.value.push(r.data);saveFolderId.value=r.data.id;newFolderName.value='';showQuickCreate.value=false}catch{} }
-async function doSaveToFolder() { if(!saveFolderId.value||!store.yamlResult)return; try{await api.put(`/records/${store.lastRecordId}/folder`,{folder_id:saveFolderId.value});_toast('✅ 已保存到文件夹');showSaveModal.value=false}catch{_toast('保存失败')} }
+async function doSaveToFolder() { if(!saveFolderId.value||!store.yamlResult)return; try{await api.put(`/records/${store.lastRecordId}/folder`,{folder_id:saveFolderId.value});_toast('✅ 已保存');showSaveModal.value=false}catch{_toast('失败')} }
 
 function onTextSelect() {
   const ta = yamlRef.value; if(!ta)return; const s=ta.selectionStart,e=ta.selectionEnd

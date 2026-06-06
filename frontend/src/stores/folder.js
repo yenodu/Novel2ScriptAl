@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '../api'
-
 export const useFolderStore = defineStore('folder', () => {
   const folders = ref([])
   const loading = ref(false)
