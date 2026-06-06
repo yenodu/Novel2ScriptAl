@@ -8,6 +8,8 @@
           <select v-model="category" class="select" @change="onCategoryChange"><option v-for="(l,k) in categories" :key="k" :value="k">{{ l }}</option></select>
           <select v-model="store.style" class="select"><option v-for="s in currentSubStyles" :key="s.key" :value="s.key">{{ s.label }}</option></select>
           <label class="mood-toggle"><input type="checkbox" v-model="store.addMood" /><span>情感标签</span></label>
+          <input ref="fileInput" type="file" accept=".docx" class="file-hidden" @change="importDocx" />
+          <button class="btn-import" @click="$refs.fileInput.click()" :disabled="importing">📄 导入Word</button>
         </div>
       </div>
       <textarea v-model="store.content" class="text-input" placeholder="在此粘贴小说文本……"></textarea>
@@ -70,6 +72,20 @@ import { exportYaml, exportTxt, exportFdx } from '../utils/export'
 import api from '../api'
 
 const store = useNovelStore()
+
+// ---- Word import ----
+import mammoth from 'mammoth'
+const fileInput = ref(null); const importing = ref(false)
+async function importDocx(e) {
+  const file = e.target.files?.[0]; if (!file) return
+  importing.value = true
+  try {
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })
+    store.content = result.value
+    e.target.value = '' // reset so same file can be re-imported
+  } catch { /* ignore */ }
+  finally { importing.value = false }
+}
 const showExport = ref(false)
 function doExport(f) { showExport.value=false; if(!store.yamlResult)return; if(f==='yaml')exportYaml(store.yamlResult);else if(f==='txt')exportTxt(store.yamlResult);else exportFdx(store.yamlResult) }
 
@@ -133,6 +149,9 @@ async function copyYaml(){if(!store.yamlResult)return;try{await navigator.clipbo
 .select:focus{outline:none;border-color:var(--accent)}
 .mood-toggle{display:flex;align-items:center;gap:.3rem;font-size:.85rem;color:var(--text-secondary);cursor:pointer;white-space:nowrap}
 .mood-toggle input{cursor:pointer}
+.file-hidden{display:none}
+.btn-import{padding:.2rem .5rem;font-size:.75rem;color:var(--text-secondary);background:var(--bg-card-alt);border:1px solid var(--border);border-radius:4px;cursor:pointer;white-space:nowrap}
+.btn-import:hover{border-color:var(--accent);color:var(--accent)}
 .text-input,.yaml-editor{flex:1;width:100%;padding:.75rem;font-size:.9rem;border-radius:6px;resize:none;line-height:1.7;min-height:420px}
 .text-input{font-family:inherit;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border)}
 .text-input:focus{outline:none;border-color:var(--accent)}
