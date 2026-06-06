@@ -19,7 +19,9 @@
       <div class="panel-header">
         <h2 class="panel-title">剧本 YAML（可编辑）</h2>
         <div class="header-actions">
+          <button v-if="store.yamlResult" class="btn-save" @click="showSaveModal=true">💾 保存</button>
           <div class="export-dropdown">
+            <button class="btn-export" @click="showExport=!showExport">导出 ▾</button>
             <div v-if="showExport" class="export-menu">
               <button @click="doExport('yaml')">导出 YAML (.yaml)</button>
               <button @click="doExport('txt')">导出 TXT (.txt)</button>
@@ -44,6 +46,12 @@
         <div class="mood-actions"><button class="btn-cancel" @click="showMoodModal=false">取消</button><button class="btn-apply" @click="applyMood">应用</button></div>
       </div>
     </div>
+    <div v-if="showSaveModal" class="modal-overlay" @click.self="showSaveModal=false">
+      <div class="save-modal"><h3>💾 保存到文件夹</h3><p v-if="saveLoading" class="msg-loading">加载中…</p>
+        <div v-else class="folder-list"><div v-for="f in saveFolders" :key="f.id" class="folder-row" :class="{selected:saveFolderId===f.id}" @click="saveFolderId=f.id"><span>📁 {{ f.name }}</span><span v-if="saveFolderId===f.id" class="check">✓</span></div></div>
+        <div class="save-actions"><button class="btn-sm" @click="quickCreateFolder">+ 新建</button><input v-if="showQuickCreate" v-model="newFolderName" class="field field-sm" placeholder="名称" @keyup.enter="doQuickCreate" /><div class="save-right"><button class="btn-cancel" @click="showSaveModal=false">取消</button><button class="btn-apply" @click="doSaveToFolder" :disabled="!saveFolderId">保存</button></div></div>
+      </div>
+    </div>
     <div v-if="toast" class="toast">{{ toast }}</div>
   </section>
 </template>
@@ -52,6 +60,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useNovelStore } from '../stores/novel'
 import { exportYaml, exportTxt, exportFdx } from '../utils/export'
+import api from '../api'
 
 const store = useNovelStore()
 const showExport = ref(false)
@@ -68,6 +77,13 @@ watch(()=>store.style,v=>{category.value=findCategory(v)})
 const yamlRef = ref(null); const floatVisible = ref(false); const floatStyle = ref({})
 const showMoodModal = ref(false); const moodSceneId = ref(0); const moodContext = ref('')
 const moodValue = ref(''); const moodLighting = ref(''); const moodSound = ref(''); const toast = ref('')
+const showSaveModal = ref(false); const saveFolders = ref([]); const saveFolderId = ref(null); const saveLoading = ref(false)
+const showQuickCreate = ref(false); const newFolderName = ref('')
+async function openSaveModal() { showSaveModal.value=true; saveLoading.value=true; try{const r=await api.get('/folders');saveFolders.value=r.data;saveFolderId.value=r.data[0]?.id||null}catch{}finally{saveLoading.value=false} }
+watch(showSaveModal, v => { if(v) openSaveModal() })
+function quickCreateFolder() { showQuickCreate.value=!showQuickCreate.value; newFolderName.value='' }
+async function doQuickCreate() { if(!newFolderName.value.trim())return; try{const r=await api.post('/folders',{name:newFolderName.value.trim()});saveFolders.value.push(r.data);saveFolderId.value=r.data.id;newFolderName.value='';showQuickCreate.value=false}catch{} }
+async function doSaveToFolder() { if(!saveFolderId.value||!store.yamlResult)return; try{await api.put(`/records/${store.lastRecordId}/folder`,{folder_id:saveFolderId.value});_toast('✅ 已保存');showSaveModal.value=false}catch{_toast('失败')} }
 function onTextSelect() {
   const ta = yamlRef.value; if(!ta)return; const s=ta.selectionStart,e=ta.selectionEnd
   if(s===e){floatVisible.value=false;return}
@@ -148,4 +164,15 @@ async function copyYaml(){if(!store.yamlResult)return;try{await navigator.clipbo
 .btn-cancel{padding:.4rem 1rem;font-size:.85rem;color:var(--text-secondary);background:var(--bg-card-alt);border:1px solid var(--border-light);border-radius:6px;cursor:pointer}
 .btn-apply{padding:.4rem 1rem;font-size:.85rem;color:var(--btn-primary-text);background:var(--accent);border:none;border-radius:6px;cursor:pointer}
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);padding:.6rem 1.5rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;font-size:.9rem;z-index:200;animation:fadeUp .3s}
+.btn-save{padding:.25rem .75rem;font-size:.8rem;color:var(--btn-primary-text);background:var(--success);border:none;border-radius:4px;cursor:pointer}
+.save-modal{background:var(--bg-card);border-radius:12px;padding:1.5rem;width:90%;max-width:420px;box-shadow:0 8px 32px var(--shadow);max-height:70vh;overflow-y:auto}
+.save-modal h3{font-size:1.05rem;color:var(--text-primary);margin-bottom:.75rem}
+.folder-list{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem}
+.folder-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem .75rem;border-radius:6px;cursor:pointer;border:1px solid var(--border-light);font-size:.9rem;color:var(--text-primary)}
+.folder-row.selected{border-color:var(--accent);background:var(--accent-light)}
+.check{color:var(--accent);font-weight:700}
+.save-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.save-right{margin-left:auto;display:flex;gap:.5rem}
+.btn-sm{padding:.3rem .7rem;font-size:.8rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-card-alt);color:var(--text-secondary);cursor:pointer}
+.field-sm{width:120px;padding:.4rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:var(--bg-input);color:var(--text-primary)}
 </style>

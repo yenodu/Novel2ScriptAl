@@ -7,6 +7,7 @@
           <option v-for="(t,k) in themeStore.themes" :key="k" :value="k">{{ t.name }}</option>
         </select>
         <template v-if="auth.isLoggedIn">
+          <router-link to="/folders" class="nav-link">文件夹</router-link>
           <router-link to="/history" class="nav-link">历史记录</router-link>
           <span class="user-tag">{{ auth.user?.username ?? '...' }}</span>
           <button class="btn-logout" @click="handleLogout">退出</button>

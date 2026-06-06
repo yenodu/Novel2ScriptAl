@@ -7,6 +7,7 @@ export const useNovelStore = defineStore('novel', () => {
   const style = ref('faithful_realism')
   const addMood = ref(false)
   const yamlResult = ref('')
+  const lastRecordId = ref(null)
   const loading = ref(false)
   const error = ref(null)
 
@@ -27,6 +28,7 @@ export const useNovelStore = defineStore('novel', () => {
         add_mood: addMood.value,
       })
       yamlResult.value = res.data.yaml
+      lastRecordId.value = res.data.record_id
     } catch (e) {
       error.value = e.response?.data?.detail ?? e.message ?? '请求失败，请检查后端是否已启动'
     } finally {
@@ -34,5 +36,5 @@ export const useNovelStore = defineStore('novel', () => {
     }
   }
 
-  return { content, style, addMood, yamlResult, loading, error, convert }
+  return { content, style, addMood, yamlResult, lastRecordId, loading, error, convert }
 })
