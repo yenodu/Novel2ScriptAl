@@ -17,11 +17,22 @@ class User(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class Folder(Base):
+    __tablename__ = "folders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(64), nullable=False)
+    parent_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class ConversionRecord(Base):
     __tablename__ = "conversion_records"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True, index=True)
     novel_text = Column(Text, nullable=False)
     script_yaml = Column(Text, nullable=False)
     style = Column(String(10), nullable=False)

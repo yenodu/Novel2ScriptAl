@@ -12,7 +12,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from database import engine, get_db
-from models import Base, User, ConversionRecord
+from models import Base, User, Folder, ConversionRecord
 from auth import hash_password, verify_password, create_access_token, get_current_user
 
 # Load .env from project root (priority) or backend/ directory
@@ -364,8 +364,8 @@ def convert(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.7,
-            max_tokens=4096,
-            timeout=60,
+            max_tokens=16384,
+            timeout=90,
         )
     except Exception as e:
         raise HTTPException(
@@ -390,8 +390,10 @@ def convert(
     # Auto-save record (failure must not break the response)
     record_id = None
     try:
+        default_folder = _get_default_folder(_user.id, db)
         record = ConversionRecord(
             user_id=_user.id,
+            folder_id=default_folder.id,
             novel_text=payload.novel_text,
             script_yaml=yaml_str,
             style=payload.style,
@@ -421,9 +423,27 @@ def _extract_yaml_block(text: str) -> str:
 
     end = text.find("```", start)
     if end == -1:
-        return text[start:].strip()
+        # No closing marker — LLM output was truncated. Trim trailing garbage.
+        result = text[start:].strip()
+        lines = result.split("\n")
+        # Remove trailing lines that don't look like YAML (no colon, not list/dialogue continuation)
+        while lines and not _looks_like_yaml_line(lines[-1]):
+            lines.pop()
+        return "\n".join(lines).strip()
 
     return text[start:end].strip()
+
+
+def _looks_like_yaml_line(line: str) -> bool:
+    s = line.strip()
+    if not s: return False
+    if ":" in s: return True
+    if s.startswith("- "): return True
+    if s.startswith("#"): return True
+    # continuation lines (indented content)
+    if len(s) < len(line) and line[0] == " ":  # indented
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -559,6 +579,74 @@ def _extract_json_block(text: str) -> str:
     if start<3: return text.strip()
     end = text.find("```", start)
     return text[start:end].strip() if end!=-1 else text[start:].strip()
+
+
+# ---------------------------------------------------------------------------
+# Folder endpoints (protected)
+# ---------------------------------------------------------------------------
+def _get_default_folder(user_id: int, db: Session) -> Folder:
+    folder = db.query(Folder).filter_by(user_id=user_id, name="未归档").first()
+    if not folder:
+        folder = Folder(user_id=user_id, name="未归档")
+        db.add(folder); db.commit(); db.refresh(folder)
+    return folder
+
+
+@app.get("/api/folders")
+def list_folders(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _get_default_folder(user.id, db)  # ensure default exists
+    folders = db.query(Folder).filter_by(user_id=user.id).order_by(Folder.created_at).all()
+    return [{"id": f.id, "name": f.name, "parent_id": f.parent_id, "created_at": f.created_at.isoformat()} for f in folders]
+
+
+class FolderCreate(BaseModel):
+    name: str
+
+
+class FolderMove(BaseModel):
+    folder_id: int
+
+
+@app.post("/api/folders")
+def create_folder(payload: FolderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    name = payload.name.strip()
+    if not name or len(name) > 64: raise HTTPException(status_code=422, detail="文件夹名称 1-64 字符")
+    existing = db.query(Folder).filter_by(user_id=user.id, name=name).first()
+    if existing: raise HTTPException(status_code=409, detail="文件夹已存在")
+    folder = Folder(user_id=user.id, name=name)
+    db.add(folder); db.commit(); db.refresh(folder)
+    return {"id": folder.id, "name": folder.name}
+
+
+@app.put("/api/folders/{folder_id}")
+def rename_folder(folder_id: int, payload: FolderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    folder = db.query(Folder).filter_by(id=folder_id, user_id=user.id).first()
+    if not folder: raise HTTPException(status_code=404, detail="文件夹不存在")
+    name = payload.name.strip()
+    if not name or len(name) > 64: raise HTTPException(status_code=422, detail="文件夹名称 1-64 字符")
+    folder.name = name; db.commit()
+    return {"id": folder.id, "name": folder.name}
+
+
+@app.put("/api/records/{record_id}/folder")
+def move_record(record_id: int, payload: FolderMove, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    folder_id = payload.folder_id
+    record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
+    if not record: raise HTTPException(status_code=404, detail="记录不存在")
+    folder = db.query(Folder).filter_by(id=folder_id, user_id=user.id).first()
+    if not folder: raise HTTPException(status_code=404, detail="文件夹不存在")
+    record.folder_id = folder_id; db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/folders/{folder_id}/records")
+def folder_records(folder_id: int, limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    folder = db.query(Folder).filter_by(id=folder_id, user_id=user.id).first()
+    if not folder: raise HTTPException(status_code=404, detail="文件夹不存在")
+    records = db.query(ConversionRecord).filter_by(user_id=user.id, folder_id=folder_id)\
+        .order_by(ConversionRecord.created_at.desc()).offset(offset).limit(limit).all()
+    return [{"id": r.id, "novel_preview": r.novel_text[:100], "style": r.style, "created_at": r.created_at.isoformat()} for r in records]
 
 
 # ---------------------------------------------------------------------------
