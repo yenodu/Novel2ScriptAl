@@ -145,51 +145,69 @@ STYLE_MAP: dict[str, tuple[str, str, str]] = {
 
 ALL_STYLES = frozenset(STYLE_MAP.keys())
 
-BASE_YAML_STRUCTURE = """YAML 结构示例：
+BASE_YAML_STRUCTURE = """标准剧本 YAML：
+
 ```yaml
 title: 重逢
+genre: 文艺/剧情
+logline: 多年未见的老友重逢，回忆与现实碰撞。
+version: "1.0"
+author: AI
+language: zh-CN
+characters:
+  - char_id: C01
+    name: 李明
+    description: 三十出头的作家，内向敏感。
+    traits: [内敛, 念旧]
+  - char_id: C02
+    name: 王芳
+    description: 同龄设计师，独立自信。
+    traits: [从容, 敏锐]
 scenes:
-  - scene_id: 1
+  - scene_id: S01
+    location: 内·咖啡厅
+    time: 白天
     chapter_index: 1
     chapter_title: 第一章 相遇
-    heading: 内景 - 咖啡厅 - 下午
-    action: 阳光透过落地窗洒在木质地板上，李明推门走进咖啡厅。
-    dialogues:
-      - character: 李明
-        line: 好久不见。
-      - character: 王芳
-        line: 是啊，三年了。
+    scene_tag: [重逢, 怀旧]
+    shot_remark: 中景推轨，暖黄顶光
+    characters_in_scene: [C01, C02]
+    content:
+      - type: action
+        text: 阳光透过落地窗洒入，李明推门走进咖啡厅。
+      - type: dialogue
+        char_id: C01
+        mood: 温和
+        text: 好久不见。
+      - type: dialogue
+        char_id: C02
+        mood: 平静
+        text: 是啊，三年了。
 ```"""
-
-
-MOOD_FIELDS = (
-    "\n此外，每个 scene 必须额外包含以下三个字段：\n"
-    "  - mood: 情绪标签（如\"紧张\"、\"浪漫\"、\"诡异\"、\"温馨\"）\n"
-    "  - suggested_lighting: 建议灯光（如\"暖黄顶光\"、\"冷蓝侧光\"、\"自然光\"）\n"
-    "  - suggested_sound: 建议音效/配乐（如\"雨声白噪\"、\"低沉弦乐\"、\"寂静\"）\n"
-)
 
 
 def build_system_prompt(style: str, add_mood: bool = False) -> str:
     _, label, addendum = STYLE_MAP[style]
-    prompt = (
-        f"你是一位专业编剧。用户会提供一段小说文本，你需要将其转换为 {label}。\n\n"
-        f"{addendum}\n\n"
-        f"如果原文包含章节标记（如\"第一章\"、\"第X章\"等），请识别并拆分章节。\n\n"
-        f"YAML 必须包含：\n"
-        f"1. title——从文本中提取或概括。\n"
-        f"2. scenes 列表——每个 scene 含 scene_id（从1开始）、chapter_index（所属章节序号，无章节则为1）、"
-        f"chapter_title（所属章节标题，无章节则为\"正文\"）、heading（场景标题）、"
-        f"action（动作与环境描述）、dialogues（列表，每条含 character 和 line）。"
-    )
+    mood_extra = ""
     if add_mood:
-        prompt += MOOD_FIELDS
-    prompt += (
-        f"\n3. 输出必须是纯 YAML，用 ```yaml 开头、``` 结尾的代码块包裹。\n"
-        f"   代码块外不要有任何文字，代码块内不要插入评论。\n\n"
+        mood_extra = "\n每个 scene 必须包含 mood、suggested_lighting、suggested_sound。\n"
+    return (
+        f"你是一位专业编剧。请将小说转换为「{label}」风格的 YAML 剧本。\n\n"
+        f"改编要点：{addendum}\n\n"
+        f"如原文含章节标记（\"第一章\"等），请识别拆分。{mood_extra}\n"
+        f"YAML 必须严格遵守：\n"
+        f"1. 元数据：title、genre、logline、version、author、language\n"
+        f"2. characters 列表：char_id(C01/C02...)、name、description、traits(数组)\n"
+        f"3. scenes 列表，每个 scene 含：\n"
+        f"   scene_id(S01/S02...)、location(内·场地 或 外·场地)、time(白天/夜晚/黄昏/凌晨)\n"
+        f"   chapter_index、chapter_title、scene_tag(情绪标签数组)、shot_remark(拍摄备注)\n"
+        f"   characters_in_scene(出场char_id数组)\n"
+        f"   content 数组，仅两种 type：\n"
+        f"     action → text(动作/环境/神态)\n"
+        f"     dialogue → char_id、mood(台词情绪)、text(台词)\n"
+        f"4. 纯 YAML，```yaml 开头 ``` 结尾。块外无文字，块内无评论。\n\n"
         f"{BASE_YAML_STRUCTURE}"
     )
-    return prompt
 
 
 def build_user_prompt(novel_text: str, style: str) -> str:
