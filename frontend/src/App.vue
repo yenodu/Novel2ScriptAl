@@ -1,6 +1,7 @@
 <template>
   <div id="app-container">
     <header class="app-header">
+<<<<<<< Updated upstream
       <div class="header-left">
         <h1>Novel2ScriptAl</h1>
         <p class="subtitle">小说转剧本工具</p>
@@ -9,6 +10,19 @@
         <router-link to="/history" class="nav-link">历史记录</router-link>
         <span class="user-tag">{{ auth.user?.username ?? '...' }}</span>
         <button class="btn-logout" @click="handleLogout">退出</button>
+=======
+      <div class="header-left"><h1>Novel2ScriptAl</h1><p class="subtitle">小说转剧本工具</p></div>
+      <div class="header-right">
+        <select v-model="themeStore.current" @change="themeStore.setTheme($event.target.value)" class="theme-select">
+          <option v-for="(t,k) in themeStore.themes" :key="k" :value="k">{{ t.name }}</option>
+        </select>
+        <template v-if="auth.isLoggedIn">
+          <router-link to="/folders" class="nav-link">文件夹</router-link>
+          <router-link to="/history" class="nav-link">历史记录</router-link>
+          <span class="user-tag">{{ auth.user?.username ?? '...' }}</span>
+          <button class="btn-logout" @click="handleLogout">退出</button>
+        </template>
+>>>>>>> Stashed changes
       </div>
     </header>
     <main>

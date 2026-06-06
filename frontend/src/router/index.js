@@ -3,6 +3,7 @@ import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 import History from '../views/History.vue'
 import ScriptDetail from '../views/ScriptDetail.vue'
+import FolderView from '../views/FolderView.vue'
 
 function getToken() {
   return localStorage.getItem('token')
@@ -29,6 +30,11 @@ const routes = [
     path: '/history/:id',
     name: 'ScriptDetail',
     component: ScriptDetail,
+  },
+  {
+    path: '/folders',
+    name: 'FolderView',
+    component: FolderView,
   },
 ]
 
