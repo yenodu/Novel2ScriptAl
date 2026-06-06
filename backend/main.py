@@ -628,6 +628,21 @@ def rename_folder(folder_id: int, payload: FolderCreate, user: User = Depends(ge
     return {"id": folder.id, "name": folder.name}
 
 
+class RecordUpdateRequest(BaseModel):
+    novel_text: str | None = None
+    script_yaml: str | None = None
+
+
+@app.patch("/api/records/{record_id}")
+def update_record(record_id: int, payload: RecordUpdateRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    record = db.query(ConversionRecord).filter_by(id=record_id, user_id=user.id).first()
+    if not record: raise HTTPException(status_code=404, detail="记录不存在")
+    if payload.novel_text is not None: record.novel_text = payload.novel_text
+    if payload.script_yaml is not None: record.script_yaml = payload.script_yaml
+    db.commit()
+    return {"ok": True}
+
+
 @app.put("/api/records/{record_id}/folder")
 def move_record(record_id: int, payload: FolderMove, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     folder_id = payload.folder_id

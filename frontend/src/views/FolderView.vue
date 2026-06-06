@@ -53,7 +53,7 @@
           <td class="col-preview">{{ r.novel_preview }}{{ r.novel_preview.length>=100?'…':'' }}</td>
           <td>{{ styleLabel(r.style) }}</td>
           <td>{{ formatTime(r.created_at) }}</td>
-          <td><router-link :to="`/history/${r.id}`" class="btn-view">查看</router-link></td>
+          <td><router-link :to="`/history/${r.id}?from=folders`" class="btn-view">查看</router-link></td>
         </tr></tbody>
       </table>
       <p v-else class="msg-empty">此文件夹暂无剧本</p>
