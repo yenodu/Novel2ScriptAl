@@ -2,11 +2,11 @@
 
 基于 **DeepSeek 大模型**的全栈 AI 编剧助手。用户粘贴或导入小说文本，选择改编风格，AI 自动生成符合行业标准的 YAML 格式剧本。支持 6 大类 18 种子风格、角色一致性校验、剧本编辑导出、文件夹管理等全链路功能。
 
-### 📺 演示视频
+###  演示视频
 
 > **点击下方链接查看完整功能演示：**
 >
-> 🔗 **[演示视频 — Bilibili](https://www.bilibili.com/video/BV19VEp6qEfv/)**
+>  **[演示视频 — Bilibili](https://www.bilibili.com/video/BV19VEp6qEfv/)**
 
 ---
 
@@ -105,6 +105,8 @@ Novel2ScriptAl/
 │   ├── index.html              # HTML 入口
 │   ├── vite.config.js          # Vite 配置（API 代理）
 │   └── package.json            # 前端依赖
+├── docs/
+│   └── YAML_SCHEMA.md          # 剧本 YAML Schema 定义文档（字段规范与设计依据）
 ├── .env.example                # API Key 配置模板
 ├── .gitignore
 ├── package.json                # 根项目脚本（concurrently 一键启动）
